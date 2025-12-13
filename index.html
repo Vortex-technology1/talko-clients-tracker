@@ -46,6 +46,7 @@
     let showExpenseForm = false;
     let editingClient = null;
     let editingExpense = null;
+    let viewingClient = null;
     let unsubClients = null;
     let unsubExpenses = null;
 
@@ -123,10 +124,20 @@
     };
 
     const actionTypeLabels = {
-      payment: { label: 'Оплата', color: 'bg-blue-100 text-blue-800', icon: '€' },
-      end: { label: 'Закінчення', color: 'bg-amber-100 text-amber-800', icon: '⏰' },
-      call: { label: 'Подзвонити', color: 'bg-green-100 text-green-800', icon: '📞' },
-      renew: { label: 'Продовження', color: 'bg-purple-100 text-purple-800', icon: '🔄' }
+      payment: { label: 'Оплата', color: 'bg-blue-100 text-blue-800', icon: 'euro' },
+      end: { label: 'Закінчення', color: 'bg-amber-100 text-amber-800', icon: 'clock' },
+      call: { label: 'Подзвонити', color: 'bg-green-100 text-green-800', icon: 'phone' },
+      renew: { label: 'Продовження', color: 'bg-purple-100 text-purple-800', icon: 'repeat' }
+    };
+
+    const nicheLabels = {
+      medical: 'Медицина', beauty: 'Краса', dental: 'Стоматологія', fitness: 'Фітнес',
+      education: 'Освіта', retail: 'Роздріб', services: 'Послуги', it: 'IT', horeca: 'HoReCa', other: 'Інше'
+    };
+
+    const sourceLabels = {
+      instagram: 'Instagram', facebook: 'Facebook', referral: 'Рекомендація', youtube: 'YouTube',
+      google: 'Google', webinar: 'Вебінар', cold: 'Холодний контакт', repeat: 'Повторний клієнт', other: 'Інше'
     };
 
     const getStatus = (row) => {
@@ -281,6 +292,15 @@
       ai: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a2 2 0 012 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 017 7h1a1 1 0 011 1v3a1 1 0 01-1 1h-1v1a2 2 0 01-2 2H5a2 2 0 01-2-2v-1H2a1 1 0 01-1-1v-3a1 1 0 011-1h1a7 7 0 017-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 012-2z"/><circle cx="9" cy="13" r="1"/><circle cx="15" cy="13" r="1"/><path d="M9 17h6"/></svg>`,
       logout: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>`,
       refresh: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>`,
+      phone: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>`,
+      telegram: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>`,
+      email: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg>`,
+      euro: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8.5a6.5 6.5 0 00-11-4.7M18 15.5a6.5 6.5 0 01-11 4.7M4 10h10M4 14h10"/></svg>`,
+      check: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>`,
+      alertCircle: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>`,
+      eye: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
+      repeat: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>`,
+      warning: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>`,
     };
 
     // Render Functions
@@ -361,6 +381,38 @@
 
       let html = '';
 
+      // Unpaid renewals
+      const unpaidRenewals = clients.filter(c => {
+        return c.nextActionType === 'renew' && (c.paid || 0) < (c.contractSum || 0);
+      });
+
+      if (unpaidRenewals.length > 0) {
+        html += `
+          <div class="mb-4 bg-orange-50 border border-orange-200 rounded-xl p-4">
+            <h2 class="text-sm font-bold text-orange-800 mb-2 flex items-center gap-2">${icons.warning} Продовження без оплати (${unpaidRenewals.length})</h2>
+            <div class="space-y-2">
+              ${unpaidRenewals.map(c => {
+                const debt = (c.contractSum || 0) - (c.paid || 0);
+                return `
+                <div class="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-orange-100">
+                  <div class="flex items-center gap-2 text-sm">
+                    <span class="text-orange-500">${icons.repeat}</span>
+                    <button onclick="window.viewClient('${c.id}')" class="font-medium hover:text-orange-600 hover:underline">${c.name}</button>
+                    ${c.businessName ? `<span class="text-gray-400">${c.businessName}</span>` : ''}
+                  </div>
+                  <div class="flex items-center gap-3 text-sm">
+                    <span class="text-orange-600 font-medium">Борг: €${debt}</span>
+                    <button onclick="window.editClient('${c.id}')" class="px-3 py-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-1">
+                      ${icons.edit} Оплата
+                    </button>
+                  </div>
+                </div>
+              `}).join('')}
+            </div>
+          </div>
+        `;
+      }
+
       // Overdue actions - RED
       if (overdueActions.length > 0) {
         html += `
@@ -372,13 +424,13 @@
                 return `
                 <div class="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-red-100">
                   <div class="flex items-center gap-2 text-sm">
-                    <span class="text-lg">${actionInfo.icon}</span>
+                    <span class="text-red-500">${icons[actionInfo.icon]}</span>
                     <span class="font-medium">${c.name}</span>
                     <span class="px-2 py-0.5 rounded text-xs ${actionInfo.color}">${actionInfo.label}</span>
                     <span class="text-red-600">${formatDate(c.nextActionDate)}</span>
                   </div>
                   <button onclick="window.completeAction('${c.id}')" class="px-3 py-1 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 flex items-center gap-1">
-                    ✓ +1 міс
+                    ${icons.check} +1 міс
                   </button>
                 </div>
               `}).join('')}
@@ -399,13 +451,13 @@
                 return `
                 <div class="flex items-center justify-between bg-white px-3 py-2 rounded-lg border ${isToday ? 'border-amber-300 bg-amber-50' : 'border-amber-100'}">
                   <div class="flex items-center gap-2 text-sm">
-                    <span class="text-lg">${actionInfo.icon}</span>
+                    <span class="text-amber-500">${icons[actionInfo.icon]}</span>
                     <span class="font-medium">${c.name}</span>
                     <span class="px-2 py-0.5 rounded text-xs ${actionInfo.color}">${actionInfo.label}</span>
                     <span class="${isToday ? 'text-amber-600 font-bold' : 'text-gray-500'}">${isToday ? 'СЬОГОДНІ' : formatDate(c.nextActionDate)}</span>
                   </div>
                   <button onclick="window.completeAction('${c.id}')" class="px-3 py-1 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600 flex items-center gap-1">
-                    ✓ +1 міс
+                    ${icons.check} +1 міс
                   </button>
                 </div>
               `}).join('')}
@@ -419,15 +471,23 @@
         html += `
           <div class="mb-4 bg-purple-50 border border-purple-200 rounded-xl p-4">
             <h2 class="text-sm font-bold text-purple-800 mb-2 flex items-center gap-2">${icons.wallet} Чекають на старт (${deposits.length})</h2>
-            <div class="flex flex-wrap gap-2">
-              ${deposits.map(c => `
-                <div class="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-purple-100 text-sm">
-                  <span class="font-medium">${c.name}</span>
-                  <span class="text-gray-400">•</span>
-                  <span class="text-gray-500">старт ${formatDate(c.startDate)}</span>
-                  <span class="text-purple-600 font-medium">€${c.paid} з €${c.contractSum}</span>
+            <div class="space-y-2">
+              ${deposits.map(c => {
+                const daysUntil = Math.ceil((new Date(c.startDate) - today) / (1000*60*60*24));
+                return `
+                <div class="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-purple-100">
+                  <div class="flex items-center gap-3">
+                    <button onclick="window.viewClient('${c.id}')" class="font-medium hover:text-purple-600 hover:underline">${c.name}</button>
+                    ${c.businessName ? `<span class="text-gray-400 text-sm">${c.businessName}</span>` : ''}
+                  </div>
+                  <div class="flex items-center gap-3 text-sm">
+                    <span class="text-purple-600 font-medium">€${c.paid} з €${c.contractSum}</span>
+                    <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded flex items-center gap-1">
+                      ${icons.calendar} ${formatDate(c.startDate)} <span class="text-purple-500">(${daysUntil} дн)</span>
+                    </span>
+                  </div>
                 </div>
-              `).join('')}
+              `}).join('')}
             </div>
           </div>
         `;
@@ -507,10 +567,23 @@
                     const statusInfo = getStatusLabel(status);
                     const service = serviceTypes.find(s => s.value === c.serviceType);
                     const actionInfo = actionTypeLabels[c.nextActionType] || actionTypeLabels.payment;
+                    const isUnpaidRenewal = c.nextActionType === 'renew' && (c.paid || 0) < (c.contractSum || 0);
+                    const debt = (c.contractSum || 0) - (c.paid || 0);
                     return `
-                      <tr class="hover:bg-gray-50">
-                        <td class="px-4 py-3 font-medium">${c.name}</td>
-                        <td class="px-4 py-3 text-center"><span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusInfo.class}">${statusInfo.label}</span></td>
+                      <tr class="${isUnpaidRenewal ? 'bg-orange-50 hover:bg-orange-100' : 'hover:bg-gray-50'}">
+                        <td class="px-4 py-3 font-medium">
+                          <div class="flex items-center gap-2">
+                            ${isUnpaidRenewal ? `<span class="text-orange-500" title="Продовження без оплати">${icons.warning}</span>` : ''}
+                            <div>
+                              <button onclick="window.viewClient('${c.id}')" class="text-left hover:text-green-600 hover:underline">${c.name}</button>
+                              ${c.businessName ? `<div class="text-xs text-gray-400">${c.businessName}</div>` : ''}
+                            </div>
+                          </div>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                          <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusInfo.class}">${statusInfo.label}</span>
+                          ${status === 'deposit' ? `<div class="text-xs text-purple-600 mt-1">старт ${formatDate(c.startDate)}</div>` : ''}
+                        </td>
                         <td class="px-4 py-3 text-center text-sm">${formatDate(c.startDate)}</td>
                         <td class="px-4 py-3 text-sm hidden md:table-cell">${service?.label || ''}</td>
                         <td class="px-4 py-3 text-center text-sm">
@@ -522,8 +595,12 @@
                           ` : '-'}
                         </td>
                         <td class="px-4 py-3 text-right">€${c.contractSum}</td>
-                        <td class="px-4 py-3 text-right text-green-600">€${c.paid}</td>
+                        <td class="px-4 py-3 text-right ${isUnpaidRenewal ? 'text-orange-600' : 'text-green-600'}">
+                          €${c.paid}
+                          ${isUnpaidRenewal ? `<div class="text-xs text-orange-500">борг €${debt}</div>` : ''}
+                        </td>
                         <td class="px-4 py-3 text-center">
+                          <button onclick="window.viewClient('${c.id}')" class="p-1.5 text-gray-400 hover:text-green-500" title="Картка">${icons.eye}</button>
                           <button onclick="window.editClient('${c.id}')" class="p-1.5 text-gray-400 hover:text-blue-500">${icons.edit}</button>
                           <button onclick="window.removeClient('${c.id}')" class="p-1.5 text-gray-400 hover:text-red-500">${icons.trash}</button>
                         </td>
@@ -726,65 +803,145 @@
     const renderClientModal = () => {
       if (!showAddForm && !editingClient) return '';
       const isEdit = !!editingClient;
-      const data = editingClient || { name: '', startDate: '', serviceType: '', contractSum: '', paid: '', repeats: false, comment: '' };
+      const data = editingClient || { name: '', startDate: '', serviceType: '', contractSum: '', paid: '', repeats: false, comment: '', phone: '', email: '', telegram: '', businessName: '', niche: '', source: '', city: '', notes: '', nextActionDate: '', nextActionType: 'payment' };
 
       return `
         <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick="if(event.target===this) window.closeClientModal()">
-          <div class="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+          <div class="bg-white rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
               <h3 class="text-lg font-bold">${isEdit ? 'Редагувати клієнта' : 'Новий клієнт'}</h3>
               <button onclick="window.closeClientModal()" class="p-1 text-gray-400 hover:text-gray-600">${icons.close}</button>
             </div>
             <form onsubmit="window.saveClient(event)">
               <div class="space-y-4">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Імʼя клієнта *</label>
-                  <input type="text" name="name" value="${data.name || ''}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Дата старту *</label>
-                  <input type="date" name="startDate" value="${data.startDate || ''}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Тип послуги *</label>
-                  <select name="serviceType" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                    <option value="">Обери...</option>
-                    ${serviceTypes.map(s => `<option value="${s.value}" ${data.serviceType === s.value ? 'selected' : ''}>${s.label}</option>`).join('')}
-                  </select>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Сума €</label>
-                    <input type="number" name="contractSum" value="${data.contractSum || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Оплачено €</label>
-                    <input type="number" name="paid" value="${data.paid || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                
+                <!-- Basic Info -->
+                <div class="border-b pb-3 mb-3">
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Основне</div>
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="col-span-2">
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Імʼя клієнта *</label>
+                      <input type="text" name="name" value="${data.name || ''}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
+                      <input type="tel" name="phone" value="${data.phone || ''}" placeholder="+380..." class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Telegram</label>
+                      <input type="text" name="telegram" value="${data.telegram || ''}" placeholder="@username" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                    <div class="col-span-2">
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                      <input type="email" name="email" value="${data.email || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    </div>
                   </div>
                 </div>
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Наступна дія (дата)</label>
-                    <input type="date" name="nextActionDate" value="${data.nextActionDate || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Тип дії</label>
-                    <select name="nextActionType" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                      <option value="payment" ${data.nextActionType === 'payment' ? 'selected' : ''}>Оплата</option>
-                      <option value="end" ${data.nextActionType === 'end' ? 'selected' : ''}>Закінчення</option>
-                      <option value="call" ${data.nextActionType === 'call' ? 'selected' : ''}>Подзвонити</option>
-                      <option value="renew" ${data.nextActionType === 'renew' ? 'selected' : ''}>Продовження</option>
-                    </select>
+
+                <!-- Business Info -->
+                <div class="border-b pb-3 mb-3">
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Бізнес</div>
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Назва бізнесу</label>
+                      <input type="text" name="businessName" value="${data.businessName || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Ніша</label>
+                      <select name="niche" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        <option value="">Не вказано</option>
+                        <option value="medical" ${data.niche === 'medical' ? 'selected' : ''}>Медицина</option>
+                        <option value="beauty" ${data.niche === 'beauty' ? 'selected' : ''}>Краса</option>
+                        <option value="dental" ${data.niche === 'dental' ? 'selected' : ''}>Стоматологія</option>
+                        <option value="fitness" ${data.niche === 'fitness' ? 'selected' : ''}>Фітнес</option>
+                        <option value="education" ${data.niche === 'education' ? 'selected' : ''}>Освіта</option>
+                        <option value="retail" ${data.niche === 'retail' ? 'selected' : ''}>Роздріб</option>
+                        <option value="services" ${data.niche === 'services' ? 'selected' : ''}>Послуги</option>
+                        <option value="it" ${data.niche === 'it' ? 'selected' : ''}>IT</option>
+                        <option value="horeca" ${data.niche === 'horeca' ? 'selected' : ''}>HoReCa</option>
+                        <option value="other" ${data.niche === 'other' ? 'selected' : ''}>Інше</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Місто</label>
+                      <input type="text" name="city" value="${data.city || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Джерело</label>
+                      <select name="source" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        <option value="">Не вказано</option>
+                        <option value="instagram" ${data.source === 'instagram' ? 'selected' : ''}>Instagram</option>
+                        <option value="facebook" ${data.source === 'facebook' ? 'selected' : ''}>Facebook</option>
+                        <option value="referral" ${data.source === 'referral' ? 'selected' : ''}>Рекомендація</option>
+                        <option value="youtube" ${data.source === 'youtube' ? 'selected' : ''}>YouTube</option>
+                        <option value="google" ${data.source === 'google' ? 'selected' : ''}>Google</option>
+                        <option value="webinar" ${data.source === 'webinar' ? 'selected' : ''}>Вебінар</option>
+                        <option value="cold" ${data.source === 'cold' ? 'selected' : ''}>Холодний контакт</option>
+                        <option value="repeat" ${data.source === 'repeat' ? 'selected' : ''}>Повторний клієнт</option>
+                        <option value="other" ${data.source === 'other' ? 'selected' : ''}>Інше</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
-                <div class="flex items-center gap-2">
-                  <input type="checkbox" name="repeats" id="repeats" ${data.repeats ? 'checked' : ''} class="w-4 h-4 text-green-500 rounded">
-                  <label for="repeats" class="text-sm text-gray-700">Повторюється щомісяця</label>
+
+                <!-- Service Info -->
+                <div class="border-b pb-3 mb-3">
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Послуга</div>
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Дата старту *</label>
+                      <input type="date" name="startDate" value="${data.startDate || ''}" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                      <p class="text-xs text-gray-400 mt-1">💡 Якщо дата в майбутньому — статус "Завдаток"</p>
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Тип послуги *</label>
+                      <select name="serviceType" required class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        <option value="">Обери...</option>
+                        ${serviceTypes.map(s => `<option value="${s.value}" ${data.serviceType === s.value ? 'selected' : ''}>${s.label}</option>`).join('')}
+                      </select>
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Сума €</label>
+                      <input type="number" name="contractSum" value="${data.contractSum || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Оплачено €</label>
+                      <input type="number" name="paid" value="${data.paid || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                  </div>
                 </div>
+
+                <!-- Next Action -->
+                <div class="border-b pb-3 mb-3">
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Наступна дія</div>
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Дата</label>
+                      <input type="date" name="nextActionDate" value="${data.nextActionDate || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    </div>
+                    <div>
+                      <label class="block text-sm font-medium text-gray-700 mb-1">Тип</label>
+                      <select name="nextActionType" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        <option value="payment" ${data.nextActionType === 'payment' ? 'selected' : ''}>Оплата</option>
+                        <option value="end" ${data.nextActionType === 'end' ? 'selected' : ''}>Закінчення</option>
+                        <option value="call" ${data.nextActionType === 'call' ? 'selected' : ''}>Подзвонити</option>
+                        <option value="renew" ${data.nextActionType === 'renew' ? 'selected' : ''}>Продовження</option>
+                      </select>
+                    </div>
+                    <div class="col-span-2 flex items-center gap-2">
+                      <input type="checkbox" name="repeats" id="repeats" ${data.repeats ? 'checked' : ''} class="w-4 h-4 text-green-500 rounded">
+                      <label for="repeats" class="text-sm text-gray-700">Регулярний клієнт (щомісяця)</label>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Notes -->
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Коментар</label>
-                  <input type="text" name="comment" value="${data.comment || ''}" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Нотатки</div>
+                  <textarea name="notes" rows="3" placeholder="Важлива інформація про клієнта..." class="w-full px-3 py-2 border border-gray-300 rounded-lg">${data.notes || ''}</textarea>
+                  <input type="hidden" name="comment" value="${data.comment || ''}">
                 </div>
+
               </div>
               <div class="flex gap-2 mt-6">
                 <button type="submit" class="flex-1 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600">Зберегти</button>
@@ -851,6 +1008,152 @@
       `;
     };
 
+    const renderClientCard = () => {
+      if (!viewingClient) return '';
+      const c = viewingClient;
+      const status = getStatus(c);
+      const statusInfo = getStatusLabel(status);
+      const service = serviceTypes.find(s => s.value === c.serviceType);
+      const actionInfo = actionTypeLabels[c.nextActionType] || actionTypeLabels.payment;
+
+      return `
+        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick="if(event.target===this) window.closeClientCard()">
+          <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            
+            <!-- Header -->
+            <div class="bg-gradient-to-r ${status === 'deposit' ? 'from-purple-500 to-purple-600' : status === 'completed' ? 'from-gray-400 to-gray-500' : 'from-green-500 to-green-600'} text-white p-6 rounded-t-2xl">
+              <div class="flex justify-between items-start">
+                <div>
+                  <h2 class="text-xl font-bold">${c.name}</h2>
+                  ${c.businessName ? `<p class="text-white/70">${c.businessName}</p>` : ''}
+                </div>
+                <div class="flex gap-2">
+                  <button onclick="window.editClientFromCard('${c.id}')" class="p-2 bg-white/20 rounded-lg hover:bg-white/30">${icons.edit}</button>
+                  <button onclick="window.closeClientCard()" class="p-2 bg-white/20 rounded-lg hover:bg-white/30">${icons.close}</button>
+                </div>
+              </div>
+              <div class="flex gap-2 mt-3">
+                <span class="px-3 py-1 bg-white/20 rounded-full text-sm">${statusInfo.label}</span>
+                ${c.niche ? `<span class="px-3 py-1 bg-white/20 rounded-full text-sm">${nicheLabels[c.niche] || c.niche}</span>` : ''}
+                ${c.source ? `<span class="px-3 py-1 bg-white/20 rounded-full text-sm">${sourceLabels[c.source] || c.source}</span>` : ''}
+              </div>
+            </div>
+
+            <div class="p-6 space-y-4">
+              
+              <!-- Contact -->
+              ${(c.phone || c.telegram || c.email) ? `
+                <div>
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Контакти</div>
+                  <div class="grid grid-cols-1 gap-2">
+                    ${c.phone ? `
+                      <a href="tel:${c.phone}" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
+                        <span class="text-green-500">${icons.phone}</span>
+                        <span>${c.phone}</span>
+                      </a>
+                    ` : ''}
+                    ${c.telegram ? `
+                      <a href="https://t.me/${c.telegram.replace('@', '')}" target="_blank" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
+                        <span class="text-blue-500">${icons.telegram}</span>
+                        <span>${c.telegram}</span>
+                      </a>
+                    ` : ''}
+                    ${c.email ? `
+                      <a href="mailto:${c.email}" class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
+                        <span class="text-red-500">${icons.email}</span>
+                        <span>${c.email}</span>
+                      </a>
+                    ` : ''}
+                  </div>
+                </div>
+              ` : ''}
+
+              <!-- Service Info -->
+              <div>
+                <div class="text-xs font-bold text-gray-500 uppercase mb-2">Послуга</div>
+                <div class="bg-gray-50 rounded-lg p-4">
+                  <div class="flex justify-between items-center mb-2">
+                    <span class="font-medium">${service?.label || 'Не вказано'}</span>
+                    <span class="text-gray-500">${c.city || ''}</span>
+                  </div>
+                  
+                  ${status === 'deposit' ? `
+                    <div class="bg-purple-100 border border-purple-200 rounded-lg p-3 my-3">
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                          <span class="text-purple-600">${icons.calendar}</span>
+                          <div>
+                            <div class="text-purple-800 font-medium">Старт: ${formatDate(c.startDate)}</div>
+                            <div class="text-purple-600 text-sm">Через ${Math.ceil((new Date(c.startDate) - new Date()) / (1000*60*60*24))} днів</div>
+                          </div>
+                        </div>
+                        <div class="text-right">
+                          <div class="text-purple-600 text-sm">Завдаток</div>
+                          <div class="text-purple-800 font-bold">€${c.paid || 0} з €${c.contractSum || 0}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ` : ''}
+                  
+                  <div class="grid grid-cols-3 gap-4 text-center mt-3">
+                    <div>
+                      <div class="text-xs text-gray-500">Договір</div>
+                      <div class="font-bold text-lg">€${c.contractSum || 0}</div>
+                    </div>
+                    <div>
+                      <div class="text-xs text-gray-500">Оплачено</div>
+                      <div class="font-bold text-lg text-green-600">€${c.paid || 0}</div>
+                    </div>
+                    <div>
+                      <div class="text-xs text-gray-500">Борг</div>
+                      <div class="font-bold text-lg ${(c.contractSum - c.paid) > 0 ? 'text-red-500' : 'text-gray-400'}">€${(c.contractSum || 0) - (c.paid || 0)}</div>
+                    </div>
+                  </div>
+                  <div class="flex justify-between text-sm text-gray-500 mt-3 pt-3 border-t">
+                    <span>${status === 'deposit' ? 'Дата договору' : 'Старт'}: ${formatDate(c.startDate)}</span>
+                    ${c.repeats ? `<span class="text-blue-600 flex items-center gap-1">${icons.repeat} Регулярний</span>` : ''}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Next Action -->
+              ${c.nextActionDate ? `
+                <div>
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Наступна дія</div>
+                  <div class="flex items-center justify-between p-4 rounded-lg ${actionInfo.color}">
+                    <div class="flex items-center gap-3">
+                      <span class="w-8 h-8">${icons[actionInfo.icon]}</span>
+                      <div>
+                        <div class="font-medium">${actionInfo.label}</div>
+                        <div class="text-sm">${formatDate(c.nextActionDate)}</div>
+                      </div>
+                    </div>
+                    <button onclick="window.completeAction('${c.id}')" class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 text-sm flex items-center gap-1">
+                      ${icons.check} +1 міс
+                    </button>
+                  </div>
+                </div>
+              ` : ''}
+
+              <!-- Notes -->
+              ${c.notes ? `
+                <div>
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Нотатки</div>
+                  <div class="bg-yellow-50 border border-yellow-100 rounded-lg p-4 text-sm whitespace-pre-wrap">${c.notes}</div>
+                </div>
+              ` : ''}
+
+              <!-- Comment -->
+              ${c.comment ? `
+                <div class="text-sm text-gray-500 italic">${c.comment}</div>
+              ` : ''}
+
+            </div>
+          </div>
+        </div>
+      `;
+    };
+
     const render = () => {
       const appEl = document.getElementById('app');
 
@@ -875,6 +1178,7 @@
         </main>
         ${renderClientModal()}
         ${renderExpenseModal()}
+        ${renderClientCard()}
       `;
     };
 
@@ -884,13 +1188,23 @@
     window.setTab = (tab) => { activeTab = tab; render(); };
     window.openAddClient = () => { showAddForm = true; editingClient = null; render(); };
     window.closeClientModal = () => { showAddForm = false; editingClient = null; render(); };
-    window.editClient = (id) => { editingClient = clients.find(c => c.id === id); showAddForm = false; render(); };
+    window.editClient = (id) => { editingClient = clients.find(c => c.id === id); showAddForm = false; viewingClient = null; render(); };
+    window.viewClient = (id) => { viewingClient = clients.find(c => c.id === id); render(); };
+    window.closeClientCard = () => { viewingClient = null; render(); };
+    window.editClientFromCard = (id) => { viewingClient = null; editingClient = clients.find(c => c.id === id); render(); };
     window.removeClient = async (id) => { if (confirm('Видалити клієнта?')) await deleteClient(id); };
     window.saveClient = async (e) => {
       e.preventDefault();
       const form = e.target;
       const data = {
         name: form.name.value,
+        phone: form.phone.value || '',
+        email: form.email.value || '',
+        telegram: form.telegram.value || '',
+        businessName: form.businessName.value || '',
+        niche: form.niche.value || '',
+        city: form.city.value || '',
+        source: form.source.value || '',
         startDate: form.startDate.value,
         serviceType: form.serviceType.value,
         contractSum: parseFloat(form.contractSum.value) || 0,
@@ -898,7 +1212,8 @@
         nextActionDate: form.nextActionDate.value || '',
         nextActionType: form.nextActionType.value || 'payment',
         repeats: form.repeats.checked,
-        comment: form.comment.value
+        notes: form.notes.value || '',
+        comment: form.comment.value || ''
       };
       if (editingClient) await updateClient(editingClient.id, data);
       else await addClient(data);
