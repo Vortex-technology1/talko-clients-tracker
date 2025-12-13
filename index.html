@@ -381,29 +381,35 @@
 
       let html = '';
 
-      // Unpaid renewals
+      // Unpaid renewals - only if action date has PASSED
       const unpaidRenewals = clients.filter(c => {
-        return c.nextActionType === 'renew' && (c.paid || 0) < (c.contractSum || 0);
+        if (!c.nextActionDate) return false;
+        const actionDate = new Date(c.nextActionDate);
+        actionDate.setHours(0,0,0,0);
+        const hasDebt = (c.paid || 0) < (c.contractSum || 0);
+        const isPastDue = actionDate < today;
+        return (c.nextActionType === 'renew' || c.nextActionType === 'payment') && hasDebt && isPastDue;
       });
 
       if (unpaidRenewals.length > 0) {
         html += `
           <div class="mb-4 bg-orange-50 border border-orange-200 rounded-xl p-4">
-            <h2 class="text-sm font-bold text-orange-800 mb-2 flex items-center gap-2">${icons.warning} Продовження без оплати (${unpaidRenewals.length})</h2>
+            <h2 class="text-sm font-bold text-orange-800 mb-2 flex items-center gap-2">${icons.warning} Прострочена оплата (${unpaidRenewals.length})</h2>
             <div class="space-y-2">
               ${unpaidRenewals.map(c => {
                 const debt = (c.contractSum || 0) - (c.paid || 0);
                 return `
                 <div class="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-orange-100">
                   <div class="flex items-center gap-2 text-sm">
-                    <span class="text-orange-500">${icons.repeat}</span>
+                    <span class="text-orange-500">${icons.euro}</span>
                     <button onclick="window.viewClient('${c.id}')" class="font-medium hover:text-orange-600 hover:underline">${c.name}</button>
                     ${c.businessName ? `<span class="text-gray-400">${c.businessName}</span>` : ''}
+                    <span class="text-red-500 text-xs">${formatDate(c.nextActionDate)}</span>
                   </div>
                   <div class="flex items-center gap-3 text-sm">
                     <span class="text-orange-600 font-medium">Борг: €${debt}</span>
                     <button onclick="window.editClient('${c.id}')" class="px-3 py-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-1">
-                      ${icons.edit} Оплата
+                      ${icons.edit} Внести
                     </button>
                   </div>
                 </div>
@@ -567,13 +573,16 @@
                     const statusInfo = getStatusLabel(status);
                     const service = serviceTypes.find(s => s.value === c.serviceType);
                     const actionInfo = actionTypeLabels[c.nextActionType] || actionTypeLabels.payment;
-                    const isUnpaidRenewal = c.nextActionType === 'renew' && (c.paid || 0) < (c.contractSum || 0);
                     const debt = (c.contractSum || 0) - (c.paid || 0);
+                    const hasDebt = debt > 0;
+                    const actionDate = c.nextActionDate ? new Date(c.nextActionDate) : null;
+                    const isPastDue = actionDate && actionDate < new Date(new Date().setHours(0,0,0,0));
+                    const isOverduePayment = (c.nextActionType === 'payment' || c.nextActionType === 'renew') && hasDebt && isPastDue;
                     return `
-                      <tr class="${isUnpaidRenewal ? 'bg-orange-50 hover:bg-orange-100' : 'hover:bg-gray-50'}">
+                      <tr class="${isOverduePayment ? 'bg-orange-50 hover:bg-orange-100' : 'hover:bg-gray-50'}">
                         <td class="px-4 py-3 font-medium">
                           <div class="flex items-center gap-2">
-                            ${isUnpaidRenewal ? `<span class="text-orange-500" title="Продовження без оплати">${icons.warning}</span>` : ''}
+                            ${isOverduePayment ? `<span class="text-orange-500" title="Прострочена оплата">${icons.warning}</span>` : ''}
                             <div>
                               <button onclick="window.viewClient('${c.id}')" class="text-left hover:text-green-600 hover:underline">${c.name}</button>
                               ${c.businessName ? `<div class="text-xs text-gray-400">${c.businessName}</div>` : ''}
@@ -595,9 +604,9 @@
                           ` : '-'}
                         </td>
                         <td class="px-4 py-3 text-right">€${c.contractSum}</td>
-                        <td class="px-4 py-3 text-right ${isUnpaidRenewal ? 'text-orange-600' : 'text-green-600'}">
+                        <td class="px-4 py-3 text-right ${isOverduePayment ? 'text-orange-600' : 'text-green-600'}">
                           €${c.paid}
-                          ${isUnpaidRenewal ? `<div class="text-xs text-orange-500">борг €${debt}</div>` : ''}
+                          ${isOverduePayment ? `<div class="text-xs text-orange-500">борг €${debt}</div>` : ''}
                         </td>
                         <td class="px-4 py-3 text-center">
                           <button onclick="window.viewClient('${c.id}')" class="p-1.5 text-gray-400 hover:text-green-500" title="Картка">${icons.eye}</button>
