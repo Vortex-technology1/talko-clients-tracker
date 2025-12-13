@@ -49,6 +49,13 @@
     let viewingClient = null;
     let unsubClients = null;
     let unsubExpenses = null;
+    
+    // Filters
+    let filterSearch = '';
+    let filterMonth = '';
+    let filterStatus = '';
+    let filterActionMonth = '';
+    let groupByMode = 'action'; // 'start' or 'action' - default by action date
 
     const serviceTypes = [
       { value: 'consulting_self', label: 'Консалтинг самостійний', months: 3 },
@@ -299,6 +306,7 @@
       check: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>`,
       alertCircle: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>`,
       eye: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
+      search: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>`,
       repeat: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>`,
       warning: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>`,
     };
@@ -527,28 +535,138 @@
     `;
 
     const renderJournal = () => {
+      // Get unique months for filter dropdown
+      const allMonths = [...new Set(clients.map(c => getMonthYear(c.startDate)))].sort((a, b) => b.localeCompare(a));
+      
+      // Get unique action months
+      const actionMonths = [...new Set(clients.filter(c => c.nextActionDate).map(c => getMonthYear(c.nextActionDate)))].sort((a, b) => b.localeCompare(a));
+      
+      // Apply filters
+      let filtered = clients.filter(c => {
+        // Search filter
+        if (filterSearch) {
+          const search = filterSearch.toLowerCase();
+          const matchName = c.name?.toLowerCase().includes(search);
+          const matchBusiness = c.businessName?.toLowerCase().includes(search);
+          const matchCity = c.city?.toLowerCase().includes(search);
+          if (!matchName && !matchBusiness && !matchCity) return false;
+        }
+        // Month filter (by start date)
+        if (filterMonth && getMonthYear(c.startDate) !== filterMonth) return false;
+        // Status filter
+        if (filterStatus && getStatus(c) !== filterStatus) return false;
+        // Action month filter (by next action date)
+        if (filterActionMonth && (!c.nextActionDate || getMonthYear(c.nextActionDate) !== filterActionMonth)) return false;
+        return true;
+      });
+
+      // Group by selected mode
       const groups = {};
-      clients.forEach(c => {
-        const key = getMonthYear(c.startDate);
+      filtered.forEach(c => {
+        let key;
+        if (groupByMode === 'action') {
+          // Group by action date month, or 'no-action' if no action date
+          key = c.nextActionDate ? getMonthYear(c.nextActionDate) : '0000-00';
+        } else {
+          // Group by start date
+          key = getMonthYear(c.startDate);
+        }
         if (!groups[key]) groups[key] = [];
         groups[key].push(c);
       });
-      const sorted = Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
-      const colors = ['bg-red-50', 'bg-amber-50', 'bg-green-50', 'bg-blue-50', 'bg-purple-50'];
+      
+      // Sort and handle "no action" group
+      let sorted = Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
+      
+      // Move "no action" group to the end
+      const noActionIndex = sorted.findIndex(([key]) => key === '0000-00');
+      if (noActionIndex > -1) {
+        const noActionGroup = sorted.splice(noActionIndex, 1)[0];
+        sorted.push(noActionGroup);
+      }
+      
+      const colors = ['bg-blue-50', 'bg-green-50', 'bg-amber-50', 'bg-purple-50', 'bg-red-50'];
+
+      // Current month for quick filter
+      const currentMonth = getCurrentMonth();
+
+      // Filter panel
+      const filterPanel = `
+        <div class="bg-white rounded-xl shadow-sm p-4 mb-4">
+          <!-- View mode toggle -->
+          <div class="flex items-center gap-2 mb-3 pb-3 border-b">
+            <span class="text-sm text-gray-500">Групувати по:</span>
+            <button onclick="window.setGroupByMode('action')" 
+              class="px-3 py-1.5 rounded-lg text-sm font-medium ${groupByMode === 'action' ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">
+              ${icons.euro} Оплатах
+            </button>
+            <button onclick="window.setGroupByMode('start')" 
+              class="px-3 py-1.5 rounded-lg text-sm font-medium ${groupByMode === 'start' ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">
+              ${icons.calendar} Старту
+            </button>
+          </div>
+          
+          <div class="flex flex-wrap gap-3 items-center">
+            <div class="flex-1 min-w-[200px]">
+              <div class="relative">
+                <input type="text" 
+                  placeholder="Пошук по імені, бізнесу, місту..." 
+                  value="${filterSearch}"
+                  onkeyup="window.setFilterSearch(this.value)"
+                  class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                <span class="absolute left-3 top-2.5 text-gray-400">${icons.search}</span>
+              </div>
+            </div>
+            <select onchange="window.setFilterStatus(this.value)" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+              <option value="">Статус: всі</option>
+              <option value="deposit" ${filterStatus === 'deposit' ? 'selected' : ''}>🟣 Завдаток</option>
+              <option value="active" ${filterStatus === 'active' ? 'selected' : ''}>🟢 Активний</option>
+              <option value="completed" ${filterStatus === 'completed' ? 'selected' : ''}>⚪ Завершено</option>
+            </select>
+            ${(filterSearch || filterMonth || filterStatus || filterActionMonth) ? `
+              <button onclick="window.clearFilters()" class="px-3 py-2 text-gray-500 hover:text-red-500 flex items-center gap-1 text-sm">
+                ${icons.close} Скинути
+              </button>
+            ` : ''}
+          </div>
+          
+          ${filtered.length !== clients.length ? `
+            <div class="mt-2 text-sm text-gray-500">
+              Знайдено: <b>${filtered.length}</b> з ${clients.length}
+            </div>
+          ` : ''}
+        </div>
+      `;
 
       if (sorted.length === 0) {
-        return '<div class="bg-white rounded-xl p-8 text-center text-gray-500">Немає клієнтів. Натисни "+ Клієнт" щоб додати.</div>';
+        return filterPanel + '<div class="bg-white rounded-xl p-8 text-center text-gray-500">' + 
+          (clients.length === 0 ? 'Немає клієнтів. Натисни "+ Клієнт" щоб додати.' : 'Нічого не знайдено за фільтрами.') + 
+          '</div>';
       }
 
-      return sorted.map(([monthKey, rows], idx) => {
-        const totals = { contract: 0, paid: 0 };
-        rows.forEach(r => { totals.contract += r.contractSum || 0; totals.paid += r.paid || 0; });
+      return filterPanel + sorted.map(([monthKey, rows], idx) => {
+        const totals = { contract: 0, paid: 0, debt: 0 };
+        rows.forEach(r => { 
+          totals.contract += r.contractSum || 0; 
+          totals.paid += r.paid || 0;
+          totals.debt += (r.contractSum || 0) - (r.paid || 0);
+        });
+        
+        const isNoAction = monthKey === '0000-00';
+        const monthLabel = isNoAction ? 'Без запланованих дій' : getMonthLabel(monthKey);
+        const headerIcon = groupByMode === 'action' ? icons.euro : icons.calendar;
 
         return `
           <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-4">
-            <div class="${colors[idx % colors.length]} px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-              <h3 class="font-bold text-gray-800 flex items-center gap-2">${icons.calendar} ${getMonthLabel(monthKey)}</h3>
+            <div class="${isNoAction ? 'bg-gray-100' : colors[idx % colors.length]} px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+              <h3 class="font-bold text-gray-800 flex items-center gap-2">
+                ${headerIcon} 
+                ${groupByMode === 'action' ? (isNoAction ? 'Без запланованих дій' : 'Оплата: ' + monthLabel) : monthLabel}
+              </h3>
               <div class="flex gap-4 text-sm">
+                ${groupByMode === 'action' && totals.debt > 0 ? `
+                  <span>Очікується: <b class="text-blue-600">€${totals.debt.toLocaleString()}</b></span>
+                ` : ''}
                 <span>Договори: <b>€${totals.contract.toLocaleString()}</b></span>
                 <span>Оплачено: <b class="text-green-600">€${totals.paid.toLocaleString()}</b></span>
               </div>
@@ -1195,6 +1313,15 @@
     window.handleSignIn = handleSignIn;
     window.handleSignOut = handleSignOut;
     window.setTab = (tab) => { activeTab = tab; render(); };
+    
+    // Filter handlers
+    window.setFilterSearch = (value) => { filterSearch = value; render(); };
+    window.setFilterMonth = (value) => { filterMonth = value; render(); };
+    window.setFilterStatus = (value) => { filterStatus = value; render(); };
+    window.setFilterActionMonth = (value) => { filterActionMonth = value; render(); };
+    window.setGroupByMode = (mode) => { groupByMode = mode; render(); };
+    window.clearFilters = () => { filterSearch = ''; filterMonth = ''; filterStatus = ''; filterActionMonth = ''; render(); };
+    
     window.openAddClient = () => { showAddForm = true; editingClient = null; render(); };
     window.closeClientModal = () => { showAddForm = false; editingClient = null; render(); };
     window.editClient = (id) => { editingClient = clients.find(c => c.id === id); showAddForm = false; viewingClient = null; render(); };
