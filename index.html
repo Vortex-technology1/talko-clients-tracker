@@ -84,6 +84,12 @@
       return `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
     };
 
+    const formatDate = (dateStr) => {
+      if (!dateStr) return '';
+      const [year, month, day] = dateStr.split('-');
+      return `${day}.${month}.${year}`;
+    };
+
     const getStatus = (record) => {
       if (record.isDeposit) return 'deposit';
       if ((record.paid || 0) >= (record.amount || 0)) return 'paid';
@@ -270,7 +276,10 @@
       }
 
       return sortedKeys.map(key => {
-        const items = groups[key];
+        const items = groups[key].sort((a, b) => {
+          if (a.paymentDate && b.paymentDate) return a.paymentDate.localeCompare(b.paymentDate);
+          return 0;
+        });
         const isDeposits = key === 'deposits';
         
         const totals = items.reduce((acc, r) => {
@@ -304,12 +313,15 @@
                   <div class="px-4 py-3 flex items-center gap-4 hover:bg-gray-50 ${status === 'pending' && debt > 0 ? 'bg-amber-50/50' : ''}">
                     <div class="flex-1 min-w-0">
                       <div class="font-medium text-gray-800">${r.name}</div>
-                      <div class="text-sm text-gray-500">${serviceTypes.find(s => s.value === r.serviceType)?.label || r.serviceType || ''}</div>
+                      <div class="text-sm text-gray-500">
+                        ${r.paymentDate ? `<span class="text-blue-600">${formatDate(r.paymentDate)}</span> · ` : ''}
+                        ${serviceTypes.find(s => s.value === r.serviceType)?.label || r.serviceType || ''}
+                      </div>
                     </div>
                     <div class="text-right">
                       <div class="font-medium">€${(r.amount || 0).toLocaleString()}</div>
                       <div class="text-sm ${status === 'paid' ? 'text-green-600' : status === 'pending' ? 'text-amber-600' : 'text-purple-600'}">
-                        ${status === 'paid' ? 'Оплачено' : status === 'deposit' ? `Завдаток €${r.paid || 0}` : `Оплачено €${r.paid || 0}`}
+                        ${status === 'paid' ? 'Оплачено' : status === 'deposit' ? `Завдаток €${r.paid || 0}` : `Сплачено €${r.paid || 0}`}
                       </div>
                     </div>
                     <div class="flex items-center gap-1">
@@ -363,8 +375,8 @@
                 </div>
 
                 <div id="monthField" style="${data.isDeposit ? 'display:none' : ''}">
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Місяць</label>
-                  <input type="month" name="month" value="${data.month || getCurrentMonth()}" 
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Дата оплати</label>
+                  <input type="date" name="paymentDate" value="${data.paymentDate || ''}" 
                     class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
                 </div>
 
@@ -457,9 +469,13 @@
     window.saveRecord = async (e) => {
       e.preventDefault();
       const form = e.target;
+      const paymentDate = form.paymentDate.value;
+      const month = paymentDate ? paymentDate.substring(0, 7) : '';
+      
       const data = {
         name: form.name.value,
-        month: form.isDeposit.checked ? '' : form.month.value,
+        paymentDate: form.isDeposit.checked ? '' : paymentDate,
+        month: form.isDeposit.checked ? '' : month,
         serviceType: form.serviceType.value,
         amount: parseFloat(form.amount.value) || 0,
         paid: parseFloat(form.paid.value) || 0,
@@ -482,20 +498,32 @@
       const record = records.find(r => r.id === id);
       if (!record) return;
       
-      const nextMonth = getNextMonth(record.month);
+      // Calculate next month date
+      let nextPaymentDate = '';
+      if (record.paymentDate) {
+        const date = new Date(record.paymentDate);
+        date.setMonth(date.getMonth() + 1);
+        nextPaymentDate = date.toISOString().split('T')[0];
+      } else {
+        const nextMonth = getNextMonth(record.month);
+        nextPaymentDate = nextMonth + '-01';
+      }
+      
+      const nextMonth = nextPaymentDate.substring(0, 7);
       
       // Create new record for next month
       await addRecord({
         name: record.name,
+        paymentDate: nextPaymentDate,
         month: nextMonth,
         serviceType: record.serviceType,
         amount: record.amount,
         paid: 0,
         isDeposit: false,
-        comment: 'Продовження'
+        comment: ''
       });
       
-      alert(`Створено запис на ${getMonthLabel(nextMonth)}`);
+      alert(`Створено запис на ${formatDate(nextPaymentDate)}`);
     };
 
     window.setFilter = (type, value) => {
