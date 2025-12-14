@@ -9,7 +9,7 @@
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
     import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-    import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, getDocs } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
     const firebaseConfig = {
       apiKey: "AIzaSyAOmGZTwlC820Eh7axijcIFt0SPCmpEquc",
@@ -184,6 +184,76 @@
         expenses = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         render();
       });
+      
+      // Check for old data migration
+      migrateOldRecords();
+    };
+
+    // Migrate old records to new clients format
+    const migrateOldRecords = async () => {
+      try {
+        const oldRecordsRef = collection(db, 'users', currentUser.uid, 'records');
+        const oldSnapshot = await getDocs(oldRecordsRef);
+        
+        if (oldSnapshot.empty) return;
+        
+        // Check if we already have clients (avoid duplicate migration)
+        const existingClients = await getDocs(clientsRef());
+        if (!existingClients.empty) {
+          console.log('Migration skipped: clients already exist');
+          return;
+        }
+        
+        // Group old records by client name
+        const clientsMap = {};
+        oldSnapshot.docs.forEach(doc => {
+          const r = doc.data();
+          const name = r.name || 'Невідомий';
+          
+          if (!clientsMap[name]) {
+            clientsMap[name] = {
+              name: name,
+              phone: r.phone || '',
+              email: r.email || '',
+              telegram: r.telegram || '',
+              businessName: r.businessName || '',
+              city: r.city || '',
+              serviceType: r.serviceType || '',
+              comment: '',
+              payments: [],
+              createdAt: r.createdAt || new Date().toISOString()
+            };
+          }
+          
+          // Add payment - old format had 'paid' as amount, new format uses boolean
+          const amount = r.amount || 0;
+          const paidAmount = r.paid || 0;
+          const isPaid = paidAmount >= amount && amount > 0;
+          
+          if (r.paymentDate || r.month || amount > 0) {
+            clientsMap[name].payments.push({
+              date: r.paymentDate || (r.month ? r.month + '-01' : ''),
+              amount: amount,
+              paid: isPaid,
+              comment: r.comment || (r.isDeposit ? 'Завдаток' : '')
+            });
+          }
+        });
+        
+        // Create new clients
+        let count = 0;
+        for (const clientData of Object.values(clientsMap)) {
+          // Sort payments by date
+          clientData.payments.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+          await addDoc(clientsRef(), clientData);
+          count++;
+        }
+        
+        alert(`✅ Міграція завершена! Перенесено ${count} клієнтів з ${oldSnapshot.size} записів.`);
+        
+      } catch (error) {
+        console.error('Migration error:', error);
+      }
     };
 
     // Auth state
