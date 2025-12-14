@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TALKO Clients Tracker</title>
+  <title>TALKO CRM</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%2322c55e' width='100' height='100' rx='20'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white'>T</text></svg>">
   <script src="https://cdn.tailwindcss.com"></script>
   <script type="module">
@@ -26,17 +26,17 @@
 
     // State
     let currentUser = null;
-    let records = [];
+    let clients = [];
     let expenses = [];
-    let activeTab = 'records'; // 'records', 'expenses', 'finance'
-    let showForm = false;
+    let activeTab = 'payments'; // 'payments', 'clients', 'expenses', 'finance'
+    let showClientForm = false;
     let showExpenseForm = false;
-    let editingRecord = null;
+    let editingClient = null;
     let editingExpense = null;
+    let viewingClient = null;
     let filterMonth = '';
-    let filterStatus = '';
     let filterSearch = '';
-    let unsubRecords = null;
+    let unsubClients = null;
     let unsubExpenses = null;
 
     // SVG Icons
@@ -45,7 +45,6 @@
       plus: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>`,
       edit: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
       trash: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/></svg>`,
-      copy: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>`,
       close: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>`,
       search: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>`,
       calendar: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`,
@@ -53,11 +52,18 @@
       check: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>`,
       clock: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>`,
       wallet: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 4H3a2 2 0 00-2 2v12a2 2 0 002 2h18a2 2 0 002-2V6a2 2 0 00-2-2zM1 10h22"/></svg>`,
-      warning: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>`,
+      user: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+      users: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>`,
+      phone: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>`,
+      mail: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg>`,
+      send: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>`,
+      building: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M9 8h1M9 12h1M9 16h1M14 8h1M14 12h1M14 16h1"/><path d="M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16"/></svg>`,
+      mapPin: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
       chart: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>`,
+      eye: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
       google: `<svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>`,
       logout: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>`,
-      // Expense category icons
+      // Expense icons
       ads: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 4v16M12 4v16M5 8v8M22 8l-7 4 7 4V8zM2 12h3"/></svg>`,
       software: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`,
       salary: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>`,
@@ -104,48 +110,38 @@
       return `${months[parseInt(month) - 1]} ${year}`;
     };
 
-    const getNextMonth = (monthStr) => {
-      const [year, month] = monthStr.split('-').map(Number);
-      const nextMonth = month === 12 ? 1 : month + 1;
-      const nextYear = month === 12 ? year + 1 : year;
-      return `${nextYear}-${String(nextMonth).padStart(2, '0')}`;
-    };
-
     const formatDate = (dateStr) => {
       if (!dateStr) return '';
       const [year, month, day] = dateStr.split('-');
       return `${day}.${month}.${year}`;
     };
 
-    const getStatus = (record) => {
-      if (record.isDeposit) return 'deposit';
-      if ((record.paid || 0) >= (record.amount || 0)) return 'paid';
-      return 'pending';
+    const isDatePast = (dateStr) => {
+      if (!dateStr) return false;
+      const today = new Date();
+      today.setHours(0,0,0,0);
+      return new Date(dateStr) < today;
     };
 
-    const getStatusInfo = (status) => {
-      switch (status) {
-        case 'deposit': return { label: 'Завдаток', class: 'bg-purple-100 text-purple-800', icon: icons.wallet };
-        case 'paid': return { label: 'Оплачено', class: 'bg-green-100 text-green-800', icon: icons.check };
-        case 'pending': return { label: 'Очікує', class: 'bg-amber-100 text-amber-800', icon: icons.clock };
-        default: return { label: '', class: '', icon: '' };
-      }
+    const isDateThisMonth = (dateStr) => {
+      if (!dateStr) return false;
+      return dateStr.startsWith(getCurrentMonth());
     };
 
     // Firebase operations
-    const recordsRef = () => collection(db, 'users', currentUser.uid, 'records');
+    const clientsRef = () => collection(db, 'users', currentUser.uid, 'clients');
     const expensesRef = () => collection(db, 'users', currentUser.uid, 'expenses');
 
-    const addRecord = async (data) => {
-      await addDoc(recordsRef(), { ...data, createdAt: new Date().toISOString() });
+    const addClient = async (data) => {
+      await addDoc(clientsRef(), { ...data, createdAt: new Date().toISOString() });
     };
 
-    const updateRecord = async (id, data) => {
-      await updateDoc(doc(db, 'users', currentUser.uid, 'records', id), data);
+    const updateClient = async (id, data) => {
+      await updateDoc(doc(db, 'users', currentUser.uid, 'clients', id), data);
     };
 
-    const deleteRecord = async (id) => {
-      await deleteDoc(doc(db, 'users', currentUser.uid, 'records', id));
+    const deleteClient = async (id) => {
+      await deleteDoc(doc(db, 'users', currentUser.uid, 'clients', id));
     };
 
     const addExpense = async (data) => {
@@ -170,16 +166,16 @@
     };
 
     const handleSignOut = async () => {
-      if (unsubRecords) unsubRecords();
+      if (unsubClients) unsubClients();
       if (unsubExpenses) unsubExpenses();
       await signOut(auth);
     };
 
     // Subscribe to data
     const subscribeToData = () => {
-      const qRecords = query(recordsRef(), orderBy('month', 'desc'));
-      unsubRecords = onSnapshot(qRecords, (snapshot) => {
-        records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const qClients = query(clientsRef(), orderBy('createdAt', 'desc'));
+      unsubClients = onSnapshot(qClients, (snapshot) => {
+        clients = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         render();
       });
       
@@ -196,11 +192,28 @@
       if (user) {
         subscribeToData();
       } else {
-        records = [];
+        clients = [];
         expenses = [];
         render();
       }
     });
+
+    // Get all payments from all clients
+    const getAllPayments = () => {
+      const payments = [];
+      clients.forEach(client => {
+        (client.payments || []).forEach((payment, index) => {
+          payments.push({
+            ...payment,
+            clientId: client.id,
+            clientName: client.name,
+            businessName: client.businessName,
+            paymentIndex: index
+          });
+        });
+      });
+      return payments;
+    };
 
     // Render functions
     const renderLogin = () => `
@@ -209,8 +222,8 @@
           <div class="w-16 h-16 bg-green-500 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white">
             ${icons.logo}
           </div>
-          <h1 class="text-2xl font-bold text-gray-800 mb-2">TALKO Tracker</h1>
-          <p class="text-gray-500 mb-6">Облік клієнтів та оплат</p>
+          <h1 class="text-2xl font-bold text-gray-800 mb-2">TALKO CRM</h1>
+          <p class="text-gray-500 mb-6">Облік клієнтів та фінансів</p>
           <button onclick="window.handleSignIn()" class="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-xl hover:bg-gray-50 transition">
             ${icons.google}
             <span>Увійти через Google</span>
@@ -220,13 +233,14 @@
     `;
 
     const renderHeader = () => {
-      // Calculate totals for current month
       const currentMonth = getCurrentMonth();
-      const currentMonthRecords = records.filter(r => r.month === currentMonth && !r.isDeposit);
-      const totalPaid = currentMonthRecords.reduce((sum, r) => sum + (r.paid || 0), 0);
-      const currentMonthExpenses = expenses.filter(e => e.date?.startsWith(currentMonth));
-      const totalExpenses = currentMonthExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-      const profit = totalPaid - totalExpenses;
+      const allPayments = getAllPayments();
+      
+      // Calculate for current month
+      const thisMonthPayments = allPayments.filter(p => p.date?.startsWith(currentMonth));
+      const thisMonthExpected = thisMonthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+      const thisMonthPaid = thisMonthPayments.filter(p => p.paid).reduce((sum, p) => sum + (p.amount || 0), 0);
+      const thisMonthExpenses = expenses.filter(e => e.date?.startsWith(currentMonth)).reduce((sum, e) => sum + (e.amount || 0), 0);
 
       return `
         <header class="bg-white border-b sticky top-0 z-40">
@@ -237,15 +251,17 @@
                   ${icons.logo}
                 </div>
                 <div>
-                  <h1 class="font-bold text-gray-800">TALKO Tracker</h1>
+                  <h1 class="font-bold text-gray-800">TALKO CRM</h1>
                   <div class="text-xs text-gray-500">${getMonthLabel(currentMonth)}</div>
                 </div>
               </div>
               <div class="flex items-center gap-4">
-                <div class="hidden sm:flex items-center gap-4 text-sm">
-                  <span class="text-green-600">+€${totalPaid.toLocaleString()}</span>
-                  <span class="text-red-600">-€${totalExpenses.toLocaleString()}</span>
-                  <span class="${profit >= 0 ? 'text-blue-600' : 'text-red-600'} font-bold">=€${profit.toLocaleString()}</span>
+                <div class="hidden sm:flex items-center gap-3 text-sm">
+                  <span title="Очікується">
+                    <span class="text-amber-600">€${(thisMonthExpected - thisMonthPaid).toLocaleString()}</span>
+                  </span>
+                  <span title="Отримано" class="text-green-600">+€${thisMonthPaid.toLocaleString()}</span>
+                  <span title="Витрати" class="text-red-600">-€${thisMonthExpenses.toLocaleString()}</span>
                 </div>
                 <button onclick="window.handleSignOut()" class="p-2 text-gray-400 hover:text-gray-600" title="Вийти">
                   ${icons.logout}
@@ -254,17 +270,21 @@
             </div>
             
             <!-- Tabs -->
-            <div class="flex gap-1 mt-3 -mb-3">
-              <button onclick="window.setTab('records')" 
-                class="px-4 py-2 rounded-t-lg text-sm font-medium ${activeTab === 'records' ? 'bg-gray-100 text-green-600' : 'text-gray-500 hover:text-gray-700'}">
-                ${icons.euro} Доходи
+            <div class="flex gap-1 mt-3 -mb-3 overflow-x-auto">
+              <button onclick="window.setTab('payments')" 
+                class="px-4 py-2 rounded-t-lg text-sm font-medium whitespace-nowrap flex items-center gap-1 ${activeTab === 'payments' ? 'bg-gray-100 text-green-600' : 'text-gray-500 hover:text-gray-700'}">
+                ${icons.calendar} Оплати
+              </button>
+              <button onclick="window.setTab('clients')" 
+                class="px-4 py-2 rounded-t-lg text-sm font-medium whitespace-nowrap flex items-center gap-1 ${activeTab === 'clients' ? 'bg-gray-100 text-blue-600' : 'text-gray-500 hover:text-gray-700'}">
+                ${icons.users} Клієнти
               </button>
               <button onclick="window.setTab('expenses')" 
-                class="px-4 py-2 rounded-t-lg text-sm font-medium ${activeTab === 'expenses' ? 'bg-gray-100 text-red-600' : 'text-gray-500 hover:text-gray-700'}">
+                class="px-4 py-2 rounded-t-lg text-sm font-medium whitespace-nowrap flex items-center gap-1 ${activeTab === 'expenses' ? 'bg-gray-100 text-red-600' : 'text-gray-500 hover:text-gray-700'}">
                 ${icons.wallet} Витрати
               </button>
               <button onclick="window.setTab('finance')" 
-                class="px-4 py-2 rounded-t-lg text-sm font-medium ${activeTab === 'finance' ? 'bg-gray-100 text-blue-600' : 'text-gray-500 hover:text-gray-700'}">
+                class="px-4 py-2 rounded-t-lg text-sm font-medium whitespace-nowrap flex items-center gap-1 ${activeTab === 'finance' ? 'bg-gray-100 text-purple-600' : 'text-gray-500 hover:text-gray-700'}">
                 ${icons.chart} Фінанси
               </button>
             </div>
@@ -273,19 +293,42 @@
       `;
     };
 
-    const renderFilters = () => {
-      const months = [...new Set(records.map(r => r.month))].sort((a, b) => b.localeCompare(a));
+    const renderPayments = () => {
+      const allPayments = getAllPayments();
       
-      return `
+      // Filter
+      let filtered = allPayments;
+      if (filterSearch) {
+        const search = filterSearch.toLowerCase();
+        filtered = filtered.filter(p => 
+          p.clientName?.toLowerCase().includes(search) || 
+          p.businessName?.toLowerCase().includes(search)
+        );
+      }
+      if (filterMonth) {
+        filtered = filtered.filter(p => p.date?.startsWith(filterMonth));
+      }
+
+      // Group by month
+      const groups = {};
+      filtered.forEach(p => {
+        const month = p.date ? p.date.substring(0, 7) : 'no-date';
+        if (!groups[month]) groups[month] = [];
+        groups[month].push(p);
+      });
+
+      const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+      const months = [...new Set(allPayments.map(p => p.date?.substring(0, 7)).filter(Boolean))].sort((a, b) => b.localeCompare(a));
+
+      // Filter panel
+      const filterPanel = `
         <div class="bg-white rounded-xl shadow-sm p-4 mb-4">
           <div class="flex flex-wrap gap-3 items-center">
             <div class="flex-1 min-w-[200px]">
               <div class="relative">
-                <input type="text" 
-                  placeholder="Пошук по імені..." 
-                  value="${filterSearch}"
+                <input type="text" placeholder="Пошук клієнта..." value="${filterSearch}"
                   oninput="window.setFilter('search', this.value)"
-                  class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                  class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
                 <span class="absolute left-3 top-2.5 text-gray-400">${icons.search}</span>
               </div>
             </div>
@@ -293,115 +336,55 @@
               <option value="">Всі місяці</option>
               ${months.map(m => `<option value="${m}" ${filterMonth === m ? 'selected' : ''}>${getMonthLabel(m)}</option>`).join('')}
             </select>
-            <select onchange="window.setFilter('status', this.value)" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
-              <option value="">Всі статуси</option>
-              <option value="deposit" ${filterStatus === 'deposit' ? 'selected' : ''}>Завдаток</option>
-              <option value="pending" ${filterStatus === 'pending' ? 'selected' : ''}>Очікує</option>
-              <option value="paid" ${filterStatus === 'paid' ? 'selected' : ''}>Оплачено</option>
-            </select>
-            ${(filterSearch || filterMonth || filterStatus) ? `
-              <button onclick="window.clearFilters()" class="p-2 text-gray-400 hover:text-red-500" title="Скинути">
-                ${icons.close}
-              </button>
+            ${(filterSearch || filterMonth) ? `
+              <button onclick="window.clearFilters()" class="p-2 text-gray-400 hover:text-red-500">${icons.close}</button>
             ` : ''}
           </div>
         </div>
       `;
-    };
-
-    const renderRecords = () => {
-      // Apply filters
-      let filtered = records.filter(r => {
-        if (filterSearch && !r.name?.toLowerCase().includes(filterSearch.toLowerCase())) return false;
-        if (filterMonth && r.month !== filterMonth) return false;
-        if (filterStatus && getStatus(r) !== filterStatus) return false;
-        return true;
-      });
-
-      // Group by month
-      const groups = {};
-      filtered.forEach(r => {
-        const key = r.isDeposit ? 'deposits' : r.month;
-        if (!groups[key]) groups[key] = [];
-        groups[key].push(r);
-      });
-
-      // Sort: deposits first, then months desc
-      const sortedKeys = Object.keys(groups).sort((a, b) => {
-        if (a === 'deposits') return -1;
-        if (b === 'deposits') return 1;
-        return b.localeCompare(a);
-      });
 
       if (sortedKeys.length === 0) {
-        return `
+        return filterPanel + `
           <div class="bg-white rounded-xl p-8 text-center text-gray-500">
-            ${records.length === 0 ? 'Немає записів. Натисни "+ Додати" щоб почати.' : 'Нічого не знайдено.'}
+            ${clients.length === 0 ? 'Немає клієнтів. Додай клієнта спочатку.' : 'Немає платежів за фільтрами.'}
           </div>
         `;
       }
 
-      return sortedKeys.map(key => {
-        const items = groups[key].sort((a, b) => {
-          if (a.paymentDate && b.paymentDate) return a.paymentDate.localeCompare(b.paymentDate);
-          return 0;
-        });
-        const isDeposits = key === 'deposits';
-        
-        const totals = items.reduce((acc, r) => {
-          acc.amount += r.amount || 0;
-          acc.paid += r.paid || 0;
-          return acc;
-        }, { amount: 0, paid: 0 });
+      return filterPanel + sortedKeys.map(month => {
+        const items = groups[month].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        const totalExpected = items.reduce((sum, p) => sum + (p.amount || 0), 0);
+        const totalPaid = items.filter(p => p.paid).reduce((sum, p) => sum + (p.amount || 0), 0);
 
         return `
           <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-4">
-            <div class="${isDeposits ? 'bg-purple-50' : 'bg-green-50'} px-4 py-3 flex items-center justify-between">
+            <div class="bg-green-50 px-4 py-3 flex items-center justify-between">
               <h3 class="font-bold text-gray-800 flex items-center gap-2">
-                ${isDeposits ? icons.wallet : icons.calendar}
-                ${isDeposits ? 'Завдатки (дата невідома)' : getMonthLabel(key)}
+                ${icons.calendar} ${month === 'no-date' ? 'Без дати' : getMonthLabel(month)}
               </h3>
               <div class="flex gap-4 text-sm">
-                <span>Договори: <b>€${totals.amount.toLocaleString()}</b></span>
-                <span>Оплачено: <b class="text-green-600">€${totals.paid.toLocaleString()}</b></span>
-                ${!isDeposits && totals.amount > totals.paid ? `
-                  <span>Очікується: <b class="text-amber-600">€${(totals.amount - totals.paid).toLocaleString()}</b></span>
-                ` : ''}
+                <span>Очікується: <b class="text-amber-600">€${(totalExpected - totalPaid).toLocaleString()}</b></span>
+                <span>Оплачено: <b class="text-green-600">€${totalPaid.toLocaleString()}</b></span>
               </div>
             </div>
             <div class="divide-y">
-              ${items.map(r => {
-                const status = getStatus(r);
-                const statusInfo = getStatusInfo(status);
-                const debt = (r.amount || 0) - (r.paid || 0);
-                
+              ${items.map(p => {
+                const isPast = isDatePast(p.date) && !p.paid;
                 return `
-                  <div class="px-4 py-3 flex items-center gap-4 hover:bg-gray-50 ${status === 'pending' && debt > 0 ? 'bg-amber-50/50' : ''}">
+                  <div class="px-4 py-3 flex items-center gap-4 hover:bg-gray-50 ${isPast ? 'bg-red-50' : ''}">
+                    <button onclick="window.togglePayment('${p.clientId}', ${p.paymentIndex})" 
+                      class="w-6 h-6 rounded-full border-2 flex items-center justify-center ${p.paid ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-green-500'}">
+                      ${p.paid ? icons.check : ''}
+                    </button>
                     <div class="flex-1 min-w-0">
-                      <div class="font-medium text-gray-800">${r.name}</div>
-                      <div class="text-sm text-gray-500">
-                        ${r.paymentDate ? `<span class="text-blue-600">${formatDate(r.paymentDate)}</span> · ` : ''}
-                        ${serviceTypes.find(s => s.value === r.serviceType)?.label || r.serviceType || ''}
-                      </div>
+                      <button onclick="window.viewClient('${p.clientId}')" class="font-medium text-gray-800 hover:text-green-600">${p.clientName}</button>
+                      ${p.businessName ? `<div class="text-sm text-gray-500">${p.businessName}</div>` : ''}
                     </div>
-                    <div class="text-right">
-                      <div class="font-medium">€${(r.amount || 0).toLocaleString()}</div>
-                      <div class="text-sm ${status === 'paid' ? 'text-green-600' : status === 'pending' ? 'text-amber-600' : 'text-purple-600'}">
-                        ${status === 'paid' ? 'Оплачено' : status === 'deposit' ? `Завдаток €${r.paid || 0}` : `Сплачено €${r.paid || 0}`}
-                      </div>
+                    <div class="text-sm ${isPast ? 'text-red-600' : 'text-gray-500'}">
+                      ${formatDate(p.date)}
                     </div>
-                    <div class="flex items-center gap-1">
-                      ${!isDeposits ? `
-                        <button onclick="window.continueRecord('${r.id}')" class="p-2 text-gray-400 hover:text-green-500" title="Продовжити на наст. місяць">
-                          ${icons.copy}
-                        </button>
-                      ` : ''}
-                      <button onclick="window.editRecord('${r.id}')" class="p-2 text-gray-400 hover:text-blue-500" title="Редагувати">
-                        ${icons.edit}
-                      </button>
-                      <button onclick="window.deleteRecord('${r.id}')" class="p-2 text-gray-400 hover:text-red-500" title="Видалити">
-                        ${icons.trash}
-                      </button>
+                    <div class="text-right font-medium ${p.paid ? 'text-green-600' : ''}">
+                      €${(p.amount || 0).toLocaleString()}
                     </div>
                   </div>
                 `;
@@ -412,139 +395,78 @@
       }).join('');
     };
 
-    const renderForm = () => {
-      if (!showForm && !editingRecord) return '';
-      
-      const isEdit = !!editingRecord;
-      const data = editingRecord || { name: '', paymentDate: '', serviceType: '', amount: '', paid: '', isDeposit: false, comment: '' };
+    const renderClients = () => {
+      let filtered = clients;
+      if (filterSearch) {
+        const search = filterSearch.toLowerCase();
+        filtered = filtered.filter(c => 
+          c.name?.toLowerCase().includes(search) || 
+          c.businessName?.toLowerCase().includes(search) ||
+          c.city?.toLowerCase().includes(search)
+        );
+      }
 
-      return `
-        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick="if(event.target===this) window.closeForm()">
-          <div class="bg-white rounded-2xl p-6 w-full max-w-md">
-            <div class="flex justify-between items-center mb-4">
-              <h3 class="text-lg font-bold">${isEdit ? 'Редагувати' : 'Новий запис'}</h3>
-              <button onclick="window.closeForm()" class="p-1 text-gray-400 hover:text-gray-600">${icons.close}</button>
+      const filterPanel = `
+        <div class="bg-white rounded-xl shadow-sm p-4 mb-4">
+          <div class="flex gap-3 items-center">
+            <div class="flex-1">
+              <div class="relative">
+                <input type="text" placeholder="Пошук клієнта..." value="${filterSearch}"
+                  oninput="window.setFilter('search', this.value)"
+                  class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                <span class="absolute left-3 top-2.5 text-gray-400">${icons.search}</span>
+              </div>
             </div>
-            <form onsubmit="window.saveRecord(event)">
-              <div class="space-y-4">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Імʼя клієнта *</label>
-                  <input type="text" name="name" value="${data.name || ''}" required 
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
-                </div>
-                
-                <div class="flex items-center gap-2 p-3 bg-purple-50 rounded-lg">
-                  <input type="checkbox" name="isDeposit" id="isDeposit" ${data.isDeposit ? 'checked' : ''} 
-                    onchange="document.getElementById('monthField').style.display = this.checked ? 'none' : 'block'"
-                    class="w-4 h-4 text-purple-500 rounded">
-                  <label for="isDeposit" class="text-sm text-purple-700">Завдаток (дата старту невідома)</label>
-                </div>
-
-                <div id="monthField" style="${data.isDeposit ? 'display:none' : ''}">
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Дата оплати</label>
-                  <input type="date" name="paymentDate" value="${data.paymentDate || ''}" 
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
-                </div>
-
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Тип послуги</label>
-                  <select name="serviceType" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                    <option value="">Не вказано</option>
-                    ${serviceTypes.map(s => `<option value="${s.value}" ${data.serviceType === s.value ? 'selected' : ''}>${s.label}</option>`).join('')}
-                  </select>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Сума договору €</label>
-                    <input type="number" name="amount" value="${data.amount || ''}" 
-                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Оплачено €</label>
-                    <input type="number" name="paid" value="${data.paid || ''}" 
-                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
-                  </div>
-                </div>
-
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Коментар</label>
-                  <input type="text" name="comment" value="${data.comment || ''}" 
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
-                </div>
-              </div>
-
-              <div class="flex gap-2 mt-6">
-                <button type="submit" class="flex-1 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 flex items-center justify-center gap-2">
-                  ${icons.check} Зберегти
-                </button>
-                <button type="button" onclick="window.closeForm()" class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300">
-                  Скасувати
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       `;
-    };
 
-    const renderExpenseForm = () => {
-      if (!showExpenseForm && !editingExpense) return '';
-      
-      const isEdit = !!editingExpense;
-      const data = editingExpense || { description: '', date: new Date().toISOString().split('T')[0], category: '', amount: '' };
-
-      return `
-        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick="if(event.target===this) window.closeExpenseForm()">
-          <div class="bg-white rounded-2xl p-6 w-full max-w-md">
-            <div class="flex justify-between items-center mb-4">
-              <h3 class="text-lg font-bold">${isEdit ? 'Редагувати витрату' : 'Нова витрата'}</h3>
-              <button onclick="window.closeExpenseForm()" class="p-1 text-gray-400 hover:text-gray-600">${icons.close}</button>
-            </div>
-            <form onsubmit="window.saveExpense(event)">
-              <div class="space-y-4">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Опис *</label>
-                  <input type="text" name="description" value="${data.description || ''}" required 
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500">
-                </div>
-
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Дата</label>
-                  <input type="date" name="date" value="${data.date || ''}" 
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500">
-                </div>
-
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Категорія</label>
-                  <select name="category" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
-                    ${expenseCategories.map(c => `<option value="${c.value}" ${data.category === c.value ? 'selected' : ''}>${c.label}</option>`).join('')}
-                  </select>
-                </div>
-
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Сума €</label>
-                  <input type="number" name="amount" value="${data.amount || ''}" required
-                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500">
-                </div>
-              </div>
-
-              <div class="flex gap-2 mt-6">
-                <button type="submit" class="flex-1 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 flex items-center justify-center gap-2">
-                  ${icons.check} Зберегти
-                </button>
-                <button type="button" onclick="window.closeExpenseForm()" class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300">
-                  Скасувати
-                </button>
-              </div>
-            </form>
+      if (filtered.length === 0) {
+        return filterPanel + `
+          <div class="bg-white rounded-xl p-8 text-center text-gray-500">
+            Немає клієнтів. Натисни "+" щоб додати.
           </div>
+        `;
+      }
+
+      return filterPanel + `
+        <div class="grid gap-4">
+          ${filtered.map(client => {
+            const totalAmount = (client.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+            const paidAmount = (client.payments || []).filter(p => p.paid).reduce((sum, p) => sum + (p.amount || 0), 0);
+            const nextPayment = (client.payments || []).find(p => !p.paid);
+            
+            return `
+              <div class="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition cursor-pointer" onclick="window.viewClient('${client.id}')">
+                <div class="flex items-start justify-between">
+                  <div class="flex-1">
+                    <h3 class="font-bold text-gray-800">${client.name}</h3>
+                    ${client.businessName ? `<div class="text-sm text-gray-500">${client.businessName}</div>` : ''}
+                    <div class="flex flex-wrap gap-2 mt-2 text-xs">
+                      ${client.phone ? `<span class="flex items-center gap-1 text-gray-500">${icons.phone} ${client.phone}</span>` : ''}
+                      ${client.city ? `<span class="flex items-center gap-1 text-gray-500">${icons.mapPin} ${client.city}</span>` : ''}
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <div class="font-bold text-gray-800">€${totalAmount.toLocaleString()}</div>
+                    <div class="text-sm ${paidAmount >= totalAmount ? 'text-green-600' : 'text-amber-600'}">
+                      Сплачено €${paidAmount.toLocaleString()}
+                    </div>
+                    ${nextPayment ? `
+                      <div class="text-xs text-gray-500 mt-1">
+                        Наст: ${formatDate(nextPayment.date)} - €${nextPayment.amount}
+                      </div>
+                    ` : ''}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
         </div>
       `;
     };
 
     const renderExpenses = () => {
-      // Group by month
       const groups = {};
       expenses.forEach(e => {
         const month = e.date ? e.date.substring(0, 7) : 'no-date';
@@ -557,7 +479,7 @@
       if (sortedKeys.length === 0) {
         return `
           <div class="bg-white rounded-xl p-8 text-center text-gray-500">
-            Немає витрат. Натисни "+ Додати" щоб внести.
+            Немає витрат. Натисни "+" щоб додати.
           </div>
         `;
       }
@@ -570,12 +492,9 @@
           <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-4">
             <div class="bg-red-50 px-4 py-3 flex items-center justify-between">
               <h3 class="font-bold text-gray-800 flex items-center gap-2">
-                ${icons.calendar}
-                ${key === 'no-date' ? 'Без дати' : getMonthLabel(key)}
+                ${icons.calendar} ${key === 'no-date' ? 'Без дати' : getMonthLabel(key)}
               </h3>
-              <div class="text-sm">
-                <span>Всього: <b class="text-red-600">€${total.toLocaleString()}</b></span>
-              </div>
+              <span class="text-sm">Всього: <b class="text-red-600">€${total.toLocaleString()}</b></span>
             </div>
             <div class="divide-y">
               ${items.map(e => {
@@ -585,22 +504,14 @@
                     <div class="w-10 h-10 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">
                       ${icons[cat?.icon] || icons.box}
                     </div>
-                    <div class="flex-1 min-w-0">
+                    <div class="flex-1">
                       <div class="font-medium text-gray-800">${e.description}</div>
-                      <div class="text-sm text-gray-500">
-                        ${e.date ? formatDate(e.date) : ''} · ${cat?.label || 'Інше'}
-                      </div>
+                      <div class="text-sm text-gray-500">${formatDate(e.date)} · ${cat?.label || 'Інше'}</div>
                     </div>
-                    <div class="text-right">
-                      <div class="font-medium text-red-600">-€${(e.amount || 0).toLocaleString()}</div>
-                    </div>
-                    <div class="flex items-center gap-1">
-                      <button onclick="window.editExpense('${e.id}')" class="p-2 text-gray-400 hover:text-blue-500" title="Редагувати">
-                        ${icons.edit}
-                      </button>
-                      <button onclick="window.deleteExpenseRecord('${e.id}')" class="p-2 text-gray-400 hover:text-red-500" title="Видалити">
-                        ${icons.trash}
-                      </button>
+                    <div class="font-medium text-red-600">-€${(e.amount || 0).toLocaleString()}</div>
+                    <div class="flex gap-1">
+                      <button onclick="window.editExpense('${e.id}')" class="p-2 text-gray-400 hover:text-blue-500">${icons.edit}</button>
+                      <button onclick="window.deleteExpenseRecord('${e.id}')" class="p-2 text-gray-400 hover:text-red-500">${icons.trash}</button>
                     </div>
                   </div>
                 `;
@@ -612,61 +523,52 @@
     };
 
     const renderFinance = () => {
-      // Get all months from records and expenses
+      const allPayments = getAllPayments();
       const allMonths = [...new Set([
-        ...records.filter(r => r.month).map(r => r.month),
-        ...expenses.filter(e => e.date).map(e => e.date.substring(0, 7))
-      ])].sort((a, b) => b.localeCompare(a));
+        ...allPayments.map(p => p.date?.substring(0, 7)),
+        ...expenses.map(e => e.date?.substring(0, 7))
+      ])].filter(Boolean).sort((a, b) => b.localeCompare(a));
 
       if (allMonths.length === 0) {
-        return `
-          <div class="bg-white rounded-xl p-8 text-center text-gray-500">
-            Немає даних для відображення.
-          </div>
-        `;
+        return `<div class="bg-white rounded-xl p-8 text-center text-gray-500">Немає даних.</div>`;
       }
 
-      // Calculate totals for each month
       const monthlyData = allMonths.map(month => {
-        const monthRecords = records.filter(r => r.month === month && !r.isDeposit);
+        const monthPayments = allPayments.filter(p => p.date?.startsWith(month));
         const monthExpenses = expenses.filter(e => e.date?.startsWith(month));
         
-        const income = monthRecords.reduce((sum, r) => sum + (r.paid || 0), 0);
-        const expected = monthRecords.reduce((sum, r) => sum + (r.amount || 0), 0);
+        const expected = monthPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+        const income = monthPayments.filter(p => p.paid).reduce((sum, p) => sum + (p.amount || 0), 0);
         const expense = monthExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-        const profit = income - expense;
-
-        return { month, income, expected, expense, profit };
+        
+        return { month, expected, income, expense, profit: income - expense };
       });
 
-      // Total summary
-      const totalIncome = monthlyData.reduce((sum, m) => sum + m.income, 0);
-      const totalExpense = monthlyData.reduce((sum, m) => sum + m.expense, 0);
-      const totalProfit = totalIncome - totalExpense;
+      const totals = monthlyData.reduce((acc, m) => {
+        acc.income += m.income;
+        acc.expense += m.expense;
+        return acc;
+      }, { income: 0, expense: 0 });
 
       return `
-        <!-- Summary cards -->
         <div class="grid grid-cols-3 gap-4 mb-6">
           <div class="bg-green-50 rounded-xl p-4 text-center">
-            <div class="text-sm text-green-600 mb-1">Всього доходів</div>
-            <div class="text-2xl font-bold text-green-700">€${totalIncome.toLocaleString()}</div>
+            <div class="text-sm text-green-600">Всього доходів</div>
+            <div class="text-2xl font-bold text-green-700">€${totals.income.toLocaleString()}</div>
           </div>
           <div class="bg-red-50 rounded-xl p-4 text-center">
-            <div class="text-sm text-red-600 mb-1">Всього витрат</div>
-            <div class="text-2xl font-bold text-red-700">€${totalExpense.toLocaleString()}</div>
+            <div class="text-sm text-red-600">Всього витрат</div>
+            <div class="text-2xl font-bold text-red-700">€${totals.expense.toLocaleString()}</div>
           </div>
-          <div class="${totalProfit >= 0 ? 'bg-blue-50' : 'bg-orange-50'} rounded-xl p-4 text-center">
-            <div class="text-sm ${totalProfit >= 0 ? 'text-blue-600' : 'text-orange-600'} mb-1">Чистий прибуток</div>
-            <div class="text-2xl font-bold ${totalProfit >= 0 ? 'text-blue-700' : 'text-orange-700'}">€${totalProfit.toLocaleString()}</div>
+          <div class="${totals.income - totals.expense >= 0 ? 'bg-blue-50' : 'bg-orange-50'} rounded-xl p-4 text-center">
+            <div class="text-sm ${totals.income - totals.expense >= 0 ? 'text-blue-600' : 'text-orange-600'}">Прибуток</div>
+            <div class="text-2xl font-bold ${totals.income - totals.expense >= 0 ? 'text-blue-700' : 'text-orange-700'}">€${(totals.income - totals.expense).toLocaleString()}</div>
           </div>
         </div>
 
-        <!-- Monthly breakdown -->
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
           <div class="bg-gray-50 px-4 py-3">
-            <h3 class="font-bold text-gray-800 flex items-center gap-2">
-              ${icons.chart} Кешфлоу по місяцях
-            </h3>
+            <h3 class="font-bold text-gray-800 flex items-center gap-2">${icons.chart} Кешфлоу</h3>
           </div>
           <div class="overflow-x-auto">
             <table class="w-full">
@@ -686,13 +588,280 @@
                     <td class="px-4 py-3 text-right text-gray-500">€${m.expected.toLocaleString()}</td>
                     <td class="px-4 py-3 text-right text-green-600">+€${m.income.toLocaleString()}</td>
                     <td class="px-4 py-3 text-right text-red-600">-€${m.expense.toLocaleString()}</td>
-                    <td class="px-4 py-3 text-right font-bold ${m.profit >= 0 ? 'text-blue-600' : 'text-orange-600'}">
-                      €${m.profit.toLocaleString()}
-                    </td>
+                    <td class="px-4 py-3 text-right font-bold ${m.profit >= 0 ? 'text-blue-600' : 'text-orange-600'}">€${m.profit.toLocaleString()}</td>
                   </tr>
                 `).join('')}
               </tbody>
             </table>
+          </div>
+        </div>
+      `;
+    };
+
+    const renderClientCard = () => {
+      if (!viewingClient) return '';
+      const c = viewingClient;
+      const totalAmount = (c.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0);
+      const paidAmount = (c.payments || []).filter(p => p.paid).reduce((sum, p) => sum + (p.amount || 0), 0);
+
+      return `
+        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto" onclick="if(event.target===this) window.closeClientCard()">
+          <div class="bg-white rounded-2xl w-full max-w-lg my-8">
+            <!-- Header -->
+            <div class="bg-green-500 text-white p-4 rounded-t-2xl">
+              <div class="flex justify-between items-start">
+                <div>
+                  <h2 class="text-xl font-bold">${c.name}</h2>
+                  ${c.businessName ? `<div class="text-green-100">${c.businessName}</div>` : ''}
+                </div>
+                <button onclick="window.closeClientCard()" class="p-1 hover:bg-white/20 rounded">${icons.close}</button>
+              </div>
+            </div>
+
+            <div class="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+              <!-- Contacts -->
+              ${(c.phone || c.email || c.telegram) ? `
+                <div>
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Контакти</div>
+                  <div class="space-y-2">
+                    ${c.phone ? `<a href="tel:${c.phone}" class="flex items-center gap-2 text-gray-700 hover:text-green-600">${icons.phone} ${c.phone}</a>` : ''}
+                    ${c.email ? `<a href="mailto:${c.email}" class="flex items-center gap-2 text-gray-700 hover:text-green-600">${icons.mail} ${c.email}</a>` : ''}
+                    ${c.telegram ? `<a href="https://t.me/${c.telegram.replace('@', '')}" target="_blank" class="flex items-center gap-2 text-gray-700 hover:text-green-600">${icons.send} ${c.telegram}</a>` : ''}
+                  </div>
+                </div>
+              ` : ''}
+
+              <!-- Business info -->
+              ${(c.city || c.serviceType) ? `
+                <div>
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Інформація</div>
+                  <div class="space-y-1 text-sm">
+                    ${c.city ? `<div class="flex items-center gap-2">${icons.mapPin} ${c.city}</div>` : ''}
+                    ${c.serviceType ? `<div class="flex items-center gap-2">${icons.building} ${serviceTypes.find(s => s.value === c.serviceType)?.label || c.serviceType}</div>` : ''}
+                  </div>
+                </div>
+              ` : ''}
+
+              <!-- Financials -->
+              <div>
+                <div class="text-xs font-bold text-gray-500 uppercase mb-2">Фінанси</div>
+                <div class="bg-gray-50 rounded-lg p-3">
+                  <div class="flex justify-between mb-2">
+                    <span>Договір:</span>
+                    <span class="font-bold">€${totalAmount.toLocaleString()}</span>
+                  </div>
+                  <div class="flex justify-between mb-2">
+                    <span>Сплачено:</span>
+                    <span class="font-bold text-green-600">€${paidAmount.toLocaleString()}</span>
+                  </div>
+                  <div class="flex justify-between">
+                    <span>Залишок:</span>
+                    <span class="font-bold ${totalAmount - paidAmount > 0 ? 'text-amber-600' : 'text-green-600'}">€${(totalAmount - paidAmount).toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Payments -->
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <div class="text-xs font-bold text-gray-500 uppercase">Графік платежів</div>
+                  <button onclick="window.addPaymentToClient('${c.id}')" class="text-green-600 hover:text-green-700 text-sm flex items-center gap-1">
+                    ${icons.plus} Додати
+                  </button>
+                </div>
+                ${(c.payments || []).length === 0 ? `
+                  <div class="text-center text-gray-500 py-4">Немає платежів</div>
+                ` : `
+                  <div class="space-y-2">
+                    ${(c.payments || []).map((p, idx) => `
+                      <div class="flex items-center gap-3 p-2 rounded-lg ${p.paid ? 'bg-green-50' : isDatePast(p.date) ? 'bg-red-50' : 'bg-gray-50'}">
+                        <button onclick="window.togglePayment('${c.id}', ${idx})" 
+                          class="w-6 h-6 rounded-full border-2 flex items-center justify-center ${p.paid ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-green-500'}">
+                          ${p.paid ? icons.check : ''}
+                        </button>
+                        <div class="flex-1">
+                          <div class="font-medium">${formatDate(p.date)}</div>
+                          ${p.comment ? `<div class="text-xs text-gray-500">${p.comment}</div>` : ''}
+                        </div>
+                        <div class="font-bold ${p.paid ? 'text-green-600' : ''}">€${(p.amount || 0).toLocaleString()}</div>
+                        <button onclick="window.deletePayment('${c.id}', ${idx})" class="p-1 text-gray-400 hover:text-red-500">${icons.trash}</button>
+                      </div>
+                    `).join('')}
+                  </div>
+                `}
+              </div>
+
+              <!-- Comment -->
+              ${c.comment ? `
+                <div>
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Коментар</div>
+                  <div class="bg-yellow-50 rounded-lg p-3 text-sm">${c.comment}</div>
+                </div>
+              ` : ''}
+            </div>
+
+            <!-- Actions -->
+            <div class="p-4 border-t flex gap-2">
+              <button onclick="window.editClient('${c.id}')" class="flex-1 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center gap-2">
+                ${icons.edit} Редагувати
+              </button>
+              <button onclick="window.deleteClientRecord('${c.id}')" class="py-2 px-4 bg-red-100 text-red-600 rounded-lg hover:bg-red-200">
+                ${icons.trash}
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    };
+
+    const renderClientForm = () => {
+      if (!showClientForm && !editingClient) return '';
+      const isEdit = !!editingClient;
+      const c = editingClient || { name: '', phone: '', email: '', telegram: '', businessName: '', city: '', serviceType: '', comment: '', payments: [] };
+
+      return `
+        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto" onclick="if(event.target===this) window.closeClientForm()">
+          <div class="bg-white rounded-2xl w-full max-w-lg my-8">
+            <div class="p-4 border-b flex justify-between items-center">
+              <h3 class="text-lg font-bold">${isEdit ? 'Редагувати клієнта' : 'Новий клієнт'}</h3>
+              <button onclick="window.closeClientForm()" class="p-1 text-gray-400 hover:text-gray-600">${icons.close}</button>
+            </div>
+            
+            <form onsubmit="window.saveClient(event)" class="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+              <!-- Basic -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Імʼя клієнта *</label>
+                <input type="text" name="name" value="${c.name || ''}" required 
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
+                  <input type="tel" name="phone" value="${c.phone || ''}" placeholder="+380..."
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Telegram</label>
+                  <input type="text" name="telegram" value="${c.telegram || ''}" placeholder="@username"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input type="email" name="email" value="${c.email || ''}"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Бізнес/Компанія</label>
+                  <input type="text" name="businessName" value="${c.businessName || ''}"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Місто</label>
+                  <input type="text" name="city" value="${c.city || ''}"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Тип послуги</label>
+                <select name="serviceType" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                  <option value="">Не вказано</option>
+                  ${serviceTypes.map(s => `<option value="${s.value}" ${c.serviceType === s.value ? 'selected' : ''}>${s.label}</option>`).join('')}
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Коментар</label>
+                <textarea name="comment" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500">${c.comment || ''}</textarea>
+              </div>
+
+              <!-- Payments -->
+              <div>
+                <div class="flex items-center justify-between mb-2">
+                  <label class="block text-sm font-medium text-gray-700">Графік платежів</label>
+                  <button type="button" onclick="window.addPaymentRow()" class="text-green-600 hover:text-green-700 text-sm flex items-center gap-1">
+                    ${icons.plus} Додати
+                  </button>
+                </div>
+                <div id="paymentsContainer" class="space-y-2">
+                  ${(c.payments || []).map((p, idx) => `
+                    <div class="flex gap-2 items-center payment-row">
+                      <input type="date" name="paymentDate_${idx}" value="${p.date || ''}" 
+                        class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                      <input type="number" name="paymentAmount_${idx}" value="${p.amount || ''}" placeholder="Сума €"
+                        class="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                      <label class="flex items-center gap-1 text-sm">
+                        <input type="checkbox" name="paymentPaid_${idx}" ${p.paid ? 'checked' : ''} class="rounded">
+                        Сплач.
+                      </label>
+                      <button type="button" onclick="this.closest('.payment-row').remove()" class="p-1 text-gray-400 hover:text-red-500">${icons.trash}</button>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+
+              <div class="flex gap-2 pt-4 border-t">
+                <button type="submit" class="flex-1 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 flex items-center justify-center gap-2">
+                  ${icons.check} Зберегти
+                </button>
+                <button type="button" onclick="window.closeClientForm()" class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300">
+                  Скасувати
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+    };
+
+    const renderExpenseForm = () => {
+      if (!showExpenseForm && !editingExpense) return '';
+      const isEdit = !!editingExpense;
+      const e = editingExpense || { description: '', date: new Date().toISOString().split('T')[0], category: 'other', amount: '' };
+
+      return `
+        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick="if(event.target===this) window.closeExpenseForm()">
+          <div class="bg-white rounded-2xl p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-bold">${isEdit ? 'Редагувати витрату' : 'Нова витрата'}</h3>
+              <button onclick="window.closeExpenseForm()" class="p-1 text-gray-400 hover:text-gray-600">${icons.close}</button>
+            </div>
+            <form onsubmit="window.saveExpense(event)">
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Опис *</label>
+                  <input type="text" name="description" value="${e.description || ''}" required 
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Дата</label>
+                    <input type="date" name="date" value="${e.date || ''}" 
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                  </div>
+                  <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Сума €</label>
+                    <input type="number" name="amount" value="${e.amount || ''}" required
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Категорія</label>
+                  <select name="category" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                    ${expenseCategories.map(c => `<option value="${c.value}" ${e.category === c.value ? 'selected' : ''}>${c.label}</option>`).join('')}
+                  </select>
+                </div>
+              </div>
+              <div class="flex gap-2 mt-6">
+                <button type="submit" class="flex-1 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600">${icons.check} Зберегти</button>
+                <button type="button" onclick="window.closeExpenseForm()" class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg">Скасувати</button>
+              </div>
+            </form>
           </div>
         </div>
       `;
@@ -710,18 +879,25 @@
       let fabAction = '';
       let fabColor = '';
       
-      if (activeTab === 'records') {
-        content = renderFilters() + renderRecords();
-        fabAction = 'window.openForm()';
-        fabColor = 'bg-green-500 hover:bg-green-600';
-      } else if (activeTab === 'expenses') {
-        content = renderExpenses();
-        fabAction = 'window.openExpenseForm()';
-        fabColor = 'bg-red-500 hover:bg-red-600';
-      } else {
-        content = renderFinance();
-        fabAction = '';
-        fabColor = '';
+      switch (activeTab) {
+        case 'payments':
+          content = renderPayments();
+          fabAction = "window.openClientForm()";
+          fabColor = 'bg-green-500 hover:bg-green-600';
+          break;
+        case 'clients':
+          content = renderClients();
+          fabAction = "window.openClientForm()";
+          fabColor = 'bg-blue-500 hover:bg-blue-600';
+          break;
+        case 'expenses':
+          content = renderExpenses();
+          fabAction = "window.openExpenseForm()";
+          fabColor = 'bg-red-500 hover:bg-red-600';
+          break;
+        case 'finance':
+          content = renderFinance();
+          break;
       }
 
       app.innerHTML = `
@@ -729,54 +905,113 @@
         <main class="max-w-5xl mx-auto px-4 py-4">
           ${content}
         </main>
-        
-        <!-- FAB -->
         ${activeTab !== 'finance' ? `
-          <button onclick="${fabAction}" 
-            class="fixed bottom-6 right-6 w-14 h-14 ${fabColor} text-white rounded-full shadow-lg flex items-center justify-center">
+          <button onclick="${fabAction}" class="fixed bottom-6 right-6 w-14 h-14 ${fabColor} text-white rounded-full shadow-lg flex items-center justify-center">
             ${icons.plus}
           </button>
         ` : ''}
-        
-        ${renderForm()}
+        ${renderClientForm()}
         ${renderExpenseForm()}
+        ${renderClientCard()}
       `;
     };
+
+    // Payment row counter
+    let paymentRowCount = 0;
 
     // Global handlers
     window.handleSignIn = handleSignIn;
     window.handleSignOut = handleSignOut;
-    
-    window.setTab = (tab) => { activeTab = tab; render(); };
-    
-    window.openForm = () => { showForm = true; editingRecord = null; render(); };
-    window.closeForm = () => { showForm = false; editingRecord = null; render(); };
-    
+    window.setTab = (tab) => { activeTab = tab; filterSearch = ''; filterMonth = ''; render(); };
+    window.setFilter = (type, value) => { 
+      if (type === 'search') filterSearch = value;
+      if (type === 'month') filterMonth = value;
+      render(); 
+    };
+    window.clearFilters = () => { filterSearch = ''; filterMonth = ''; render(); };
+
+    window.openClientForm = () => { showClientForm = true; editingClient = null; paymentRowCount = 0; render(); };
+    window.closeClientForm = () => { showClientForm = false; editingClient = null; render(); };
+    window.editClient = (id) => { 
+      editingClient = clients.find(c => c.id === id); 
+      showClientForm = false;
+      viewingClient = null;
+      paymentRowCount = (editingClient?.payments || []).length;
+      render(); 
+    };
+    window.viewClient = (id) => { viewingClient = clients.find(c => c.id === id); render(); };
+    window.closeClientCard = () => { viewingClient = null; render(); };
+    window.deleteClientRecord = async (id) => { 
+      if (confirm('Видалити клієнта та всі його платежі?')) {
+        await deleteClient(id);
+        viewingClient = null;
+        render();
+      }
+    };
+
     window.openExpenseForm = () => { showExpenseForm = true; editingExpense = null; render(); };
     window.closeExpenseForm = () => { showExpenseForm = false; editingExpense = null; render(); };
-    
-    window.editRecord = (id) => {
-      editingRecord = records.find(r => r.id === id);
-      showForm = false;
-      render();
+    window.editExpense = (id) => { editingExpense = expenses.find(e => e.id === id); showExpenseForm = false; render(); };
+    window.deleteExpenseRecord = async (id) => { if (confirm('Видалити витрату?')) await deleteExpense(id); };
+
+    window.addPaymentRow = () => {
+      const container = document.getElementById('paymentsContainer');
+      const idx = container.children.length;
+      const div = document.createElement('div');
+      div.className = 'flex gap-2 items-center payment-row';
+      div.innerHTML = `
+        <input type="date" name="paymentDate_${idx}" class="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+        <input type="number" name="paymentAmount_${idx}" placeholder="Сума €" class="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm">
+        <label class="flex items-center gap-1 text-sm">
+          <input type="checkbox" name="paymentPaid_${idx}" class="rounded">
+          Сплач.
+        </label>
+        <button type="button" onclick="this.closest('.payment-row').remove()" class="p-1 text-gray-400 hover:text-red-500">${icons.trash}</button>
+      `;
+      container.appendChild(div);
     };
 
-    window.deleteRecord = async (id) => {
-      if (confirm('Видалити запис?')) {
-        await deleteRecord(id);
-      }
-    };
-    
-    window.editExpense = (id) => {
-      editingExpense = expenses.find(e => e.id === id);
-      showExpenseForm = false;
-      render();
-    };
+    window.saveClient = async (e) => {
+      e.preventDefault();
+      const form = e.target;
+      
+      // Collect payments
+      const payments = [];
+      const rows = form.querySelectorAll('.payment-row');
+      rows.forEach((row, idx) => {
+        const dateInput = row.querySelector('input[type="date"]');
+        const amountInput = row.querySelector('input[type="number"]');
+        const paidInput = row.querySelector('input[type="checkbox"]');
+        if (dateInput?.value || amountInput?.value) {
+          payments.push({
+            date: dateInput?.value || '',
+            amount: parseFloat(amountInput?.value) || 0,
+            paid: paidInput?.checked || false
+          });
+        }
+      });
 
-    window.deleteExpenseRecord = async (id) => {
-      if (confirm('Видалити витрату?')) {
-        await deleteExpense(id);
+      const data = {
+        name: form.name.value,
+        phone: form.phone.value,
+        email: form.email.value,
+        telegram: form.telegram.value,
+        businessName: form.businessName.value,
+        city: form.city.value,
+        serviceType: form.serviceType.value,
+        comment: form.comment.value,
+        payments: payments.sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+      };
+
+      if (editingClient) {
+        await updateClient(editingClient.id, data);
+      } else {
+        await addClient(data);
       }
+
+      showClientForm = false;
+      editingClient = null;
+      render();
     };
 
     window.saveExpense = async (e) => {
@@ -800,77 +1035,53 @@
       render();
     };
 
-    window.saveRecord = async (e) => {
-      e.preventDefault();
-      const form = e.target;
-      const paymentDate = form.paymentDate.value;
-      const month = paymentDate ? paymentDate.substring(0, 7) : '';
+    window.togglePayment = async (clientId, paymentIndex) => {
+      const client = clients.find(c => c.id === clientId);
+      if (!client) return;
       
-      const data = {
-        name: form.name.value,
-        paymentDate: form.isDeposit.checked ? '' : paymentDate,
-        month: form.isDeposit.checked ? '' : month,
-        serviceType: form.serviceType.value,
-        amount: parseFloat(form.amount.value) || 0,
-        paid: parseFloat(form.paid.value) || 0,
-        isDeposit: form.isDeposit.checked,
-        comment: form.comment.value
-      };
+      const payments = [...(client.payments || [])];
+      payments[paymentIndex] = { ...payments[paymentIndex], paid: !payments[paymentIndex].paid };
       
-      if (editingRecord) {
-        await updateRecord(editingRecord.id, data);
-      } else {
-        await addRecord(data);
+      await updateClient(clientId, { payments });
+      
+      if (viewingClient?.id === clientId) {
+        viewingClient = { ...viewingClient, payments };
       }
-      
-      showForm = false;
-      editingRecord = null;
       render();
     };
 
-    window.continueRecord = async (id) => {
-      const record = records.find(r => r.id === id);
-      if (!record) return;
+    window.deletePayment = async (clientId, paymentIndex) => {
+      if (!confirm('Видалити платіж?')) return;
       
-      // Calculate next month date
-      let nextPaymentDate = '';
-      if (record.paymentDate) {
-        const date = new Date(record.paymentDate);
-        date.setMonth(date.getMonth() + 1);
-        nextPaymentDate = date.toISOString().split('T')[0];
-      } else {
-        const nextMonth = getNextMonth(record.month);
-        nextPaymentDate = nextMonth + '-01';
+      const client = clients.find(c => c.id === clientId);
+      if (!client) return;
+      
+      const payments = (client.payments || []).filter((_, idx) => idx !== paymentIndex);
+      await updateClient(clientId, { payments });
+      
+      if (viewingClient?.id === clientId) {
+        viewingClient = { ...viewingClient, payments };
       }
-      
-      const nextMonth = nextPaymentDate.substring(0, 7);
-      
-      // Create new record for next month
-      await addRecord({
-        name: record.name,
-        paymentDate: nextPaymentDate,
-        month: nextMonth,
-        serviceType: record.serviceType,
-        amount: record.amount,
-        paid: 0,
-        isDeposit: false,
-        comment: ''
-      });
-      
-      alert(`Створено запис на ${formatDate(nextPaymentDate)}`);
-    };
-
-    window.setFilter = (type, value) => {
-      if (type === 'search') filterSearch = value;
-      if (type === 'month') filterMonth = value;
-      if (type === 'status') filterStatus = value;
       render();
     };
 
-    window.clearFilters = () => {
-      filterSearch = '';
-      filterMonth = '';
-      filterStatus = '';
+    window.addPaymentToClient = async (clientId) => {
+      const date = prompt('Дата платежу (РРРР-ММ-ДД):');
+      if (!date) return;
+      const amount = prompt('Сума €:');
+      if (!amount) return;
+      
+      const client = clients.find(c => c.id === clientId);
+      if (!client) return;
+      
+      const payments = [...(client.payments || []), { date, amount: parseFloat(amount), paid: false }];
+      payments.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      
+      await updateClient(clientId, { payments });
+      
+      if (viewingClient?.id === clientId) {
+        viewingClient = { ...viewingClient, payments };
+      }
       render();
     };
 
