@@ -26,17 +26,18 @@
 
     // State
     let currentUser = null;
-    let records = [];
+    let clients = [];
     let expenses = [];
-    let activeTab = 'records';
+    let activeTab = 'clients';
     let showForm = false;
     let showExpenseForm = false;
-    let editingRecord = null;
+    let editingClient = null;
     let editingExpense = null;
-    let viewingRecord = null;
-    let filterMonth = '';
+    let viewingClient = null;
+    let filterType = '';
+    let filterStatus = '';
     let filterSearch = '';
-    let unsubRecords = null;
+    let unsubClients = null;
     let unsubExpenses = null;
 
     // SVG Icons
@@ -45,7 +46,6 @@
       plus: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>`,
       edit: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
       trash: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/></svg>`,
-      copy: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>`,
       close: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>`,
       search: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>`,
       calendar: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`,
@@ -53,13 +53,17 @@
       check: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>`,
       clock: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>`,
       wallet: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 4H3a2 2 0 00-2 2v12a2 2 0 002 2h18a2 2 0 002-2V6a2 2 0 00-2-2zM1 10h22"/></svg>`,
+      repeat: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>`,
+      list: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>`,
+      gift: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z"/></svg>`,
+      creditCard: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>`,
       phone: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>`,
       mail: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><path d="M22 6l-10 7L2 6"/></svg>`,
       send: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>`,
       building: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M9 8h1M9 12h1M9 16h1M14 8h1M14 12h1M14 16h1"/><path d="M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16"/></svg>`,
       mapPin: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
       chart: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>`,
-      file: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>`,
+      alertCircle: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>`,
       google: `<svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>`,
       logout: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>`,
       ads: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 4v16M12 4v16M5 8v8M22 8l-7 4 7 4V8zM2 12h3"/></svg>`,
@@ -70,6 +74,14 @@
       education: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>`,
       travel: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16v-2a4 4 0 00-4-4H5"/><path d="M17 6l4 4-4 4"/><path d="M3 8v2a4 4 0 004 4h12"/><path d="M7 18l-4-4 4-4"/></svg>`,
       box: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>`,
+    };
+
+    // Client types
+    const clientTypes = {
+      regular: { label: 'Регулярний', icon: icons.repeat, color: 'blue', description: 'Платить щомісяця' },
+      installment: { label: 'Розтермінування', icon: icons.list, color: 'purple', description: 'Графік платежів' },
+      prepaid: { label: 'Передоплата', icon: icons.creditCard, color: 'green', description: 'Оплатив наперед' },
+      deposit: { label: 'Завдаток', icon: icons.gift, color: 'amber', description: 'Чекає на старт' },
     };
 
     // Service types
@@ -89,8 +101,6 @@
       { value: 'salary', label: 'Зарплати', icon: 'salary' },
       { value: 'office', label: 'Офіс', icon: 'office' },
       { value: 'taxes', label: 'Податки', icon: 'taxes' },
-      { value: 'education', label: 'Навчання', icon: 'education' },
-      { value: 'travel', label: 'Поїздки', icon: 'travel' },
       { value: 'other', label: 'Інше', icon: 'box' },
     ];
 
@@ -114,56 +124,90 @@
       return `${day}.${month}.${year}`;
     };
 
-    const getNextMonthDate = (dateStr) => {
-      if (!dateStr) return '';
-      const date = new Date(dateStr);
-      date.setMonth(date.getMonth() + 1);
-      return date.toISOString().split('T')[0];
+    const getToday = () => new Date().toISOString().split('T')[0];
+
+    const getDayOfMonth = (day) => {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     };
 
     const isDatePast = (dateStr) => {
       if (!dateStr) return false;
-      const today = new Date();
-      today.setHours(0,0,0,0);
-      return new Date(dateStr) < today;
+      return dateStr < getToday();
     };
 
-    const getStatus = (r) => {
-      if (r.isDeposit) return 'deposit';
-      if ((r.paid || 0) >= (r.amount || 0)) return 'paid';
-      return 'pending';
+    const isDateToday = (dateStr) => dateStr === getToday();
+
+    const daysUntil = (dateStr) => {
+      if (!dateStr) return 999;
+      const diff = Math.ceil((new Date(dateStr) - new Date(getToday())) / (1000 * 60 * 60 * 24));
+      return diff;
     };
 
-    const getStatusInfo = (status) => {
-      switch(status) {
-        case 'deposit': return { label: 'Завдаток', class: 'bg-purple-100 text-purple-700', color: 'text-purple-600' };
-        case 'paid': return { label: 'Оплачено', class: 'bg-green-100 text-green-700', color: 'text-green-600' };
-        case 'pending': return { label: 'Очікує', class: 'bg-amber-100 text-amber-700', color: 'text-amber-600' };
-        default: return { label: '', class: '', color: '' };
+    // Get client payment status
+    const getClientStatus = (client) => {
+      const cm = getCurrentMonth();
+      
+      if (client.type === 'regular') {
+        const paymentDate = getDayOfMonth(client.paymentDay);
+        const paidThisMonth = (client.paymentHistory || []).some(p => p.month === cm);
+        
+        if (paidThisMonth) return { status: 'paid', label: 'Оплачено', color: 'green' };
+        if (isDatePast(paymentDate)) return { status: 'overdue', label: 'Прострочено', color: 'red' };
+        if (isDateToday(paymentDate)) return { status: 'today', label: 'Сьогодні!', color: 'orange' };
+        const days = daysUntil(paymentDate);
+        if (days <= 3) return { status: 'soon', label: `Через ${days} дн`, color: 'amber' };
+        return { status: 'pending', label: formatDate(paymentDate), color: 'gray' };
       }
+      
+      if (client.type === 'installment') {
+        const nextPayment = (client.payments || []).find(p => !p.paid);
+        if (!nextPayment) return { status: 'completed', label: 'Завершено', color: 'green' };
+        if (isDatePast(nextPayment.date)) return { status: 'overdue', label: 'Прострочено', color: 'red' };
+        if (isDateToday(nextPayment.date)) return { status: 'today', label: 'Сьогодні!', color: 'orange' };
+        const days = daysUntil(nextPayment.date);
+        if (days <= 7) return { status: 'soon', label: `Через ${days} дн`, color: 'amber' };
+        return { status: 'pending', label: formatDate(nextPayment.date), color: 'gray' };
+      }
+      
+      if (client.type === 'prepaid') {
+        if (isDatePast(client.endDate)) return { status: 'ended', label: 'Закінчилось', color: 'gray' };
+        const days = daysUntil(client.endDate);
+        if (days <= 7) return { status: 'ending', label: `${days} дн до кінця`, color: 'amber' };
+        return { status: 'active', label: `До ${formatDate(client.endDate)}`, color: 'green' };
+      }
+      
+      if (client.type === 'deposit') {
+        if (!client.startDate) return { status: 'waiting', label: 'Дата не визначена', color: 'gray' };
+        if (isDatePast(client.startDate)) return { status: 'started', label: 'Розпочато', color: 'green' };
+        const days = daysUntil(client.startDate);
+        return { status: 'waiting', label: `Старт через ${days} дн`, color: 'amber' };
+      }
+      
+      return { status: 'unknown', label: '', color: 'gray' };
     };
 
     // Firebase
-    const recordsRef = () => collection(db, 'users', currentUser.uid, 'records');
+    const clientsRef = () => collection(db, 'users', currentUser.uid, 'clients');
     const expensesRef = () => collection(db, 'users', currentUser.uid, 'expenses');
 
-    const addRecord = async (data) => await addDoc(recordsRef(), { ...data, createdAt: new Date().toISOString() });
-    const updateRecord = async (id, data) => await updateDoc(doc(db, 'users', currentUser.uid, 'records', id), data);
-    const deleteRecord = async (id) => await deleteDoc(doc(db, 'users', currentUser.uid, 'records', id));
+    const addClient = async (data) => await addDoc(clientsRef(), { ...data, createdAt: new Date().toISOString() });
+    const updateClient = async (id, data) => await updateDoc(doc(db, 'users', currentUser.uid, 'clients', id), data);
+    const deleteClient = async (id) => await deleteDoc(doc(db, 'users', currentUser.uid, 'clients', id));
     const addExpense = async (data) => await addDoc(expensesRef(), { ...data, createdAt: new Date().toISOString() });
     const updateExpense = async (id, data) => await updateDoc(doc(db, 'users', currentUser.uid, 'expenses', id), data);
     const deleteExpense = async (id) => await deleteDoc(doc(db, 'users', currentUser.uid, 'expenses', id));
 
     const handleSignIn = async () => { await signInWithPopup(auth, new GoogleAuthProvider()); };
     const handleSignOut = async () => { 
-      if (unsubRecords) unsubRecords(); 
+      if (unsubClients) unsubClients(); 
       if (unsubExpenses) unsubExpenses();
       await signOut(auth); 
     };
 
     const subscribeToData = () => {
-      unsubRecords = onSnapshot(query(recordsRef(), orderBy('createdAt', 'desc')), (snap) => {
-        records = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      unsubClients = onSnapshot(query(clientsRef(), orderBy('createdAt', 'desc')), (snap) => {
+        clients = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         render();
       });
       unsubExpenses = onSnapshot(query(expensesRef(), orderBy('date', 'desc')), (snap) => {
@@ -175,10 +219,10 @@
     onAuthStateChanged(auth, (user) => {
       currentUser = user;
       if (user) subscribeToData();
-      else { records = []; expenses = []; render(); }
+      else { clients = []; expenses = []; render(); }
     });
 
-    // Render
+    // Render login
     const renderLogin = () => `
       <div class="min-h-screen bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-sm text-center">
@@ -192,12 +236,31 @@
       </div>
     `;
 
+    // Render header
     const renderHeader = () => {
       const cm = getCurrentMonth();
-      const cmRecords = records.filter(r => r.paymentDate?.startsWith(cm) && !r.isDeposit);
-      const expected = cmRecords.reduce((s, r) => s + (r.amount || 0), 0);
-      const paid = cmRecords.reduce((s, r) => s + (r.paid || 0), 0);
-      const cmExpenses = expenses.filter(e => e.date?.startsWith(cm)).reduce((s, e) => s + (e.amount || 0), 0);
+      
+      // Calculate totals
+      let expectedThisMonth = 0;
+      let paidThisMonth = 0;
+      
+      clients.forEach(c => {
+        if (c.type === 'regular') {
+          expectedThisMonth += c.monthlyAmount || 0;
+          const paid = (c.paymentHistory || []).find(p => p.month === cm);
+          if (paid) paidThisMonth += paid.amount || c.monthlyAmount || 0;
+        }
+        if (c.type === 'installment') {
+          (c.payments || []).forEach(p => {
+            if (p.date?.startsWith(cm)) {
+              expectedThisMonth += p.amount || 0;
+              if (p.paid) paidThisMonth += p.amount || 0;
+            }
+          });
+        }
+      });
+      
+      const expensesThisMonth = expenses.filter(e => e.date?.startsWith(cm)).reduce((s, e) => s + (e.amount || 0), 0);
 
       return `
         <header class="bg-white border-b sticky top-0 z-40">
@@ -212,16 +275,16 @@
               </div>
               <div class="flex items-center gap-3">
                 <div class="hidden sm:flex items-center gap-3 text-sm">
-                  <span class="text-amber-600" title="Очікується">€${(expected - paid).toLocaleString()}</span>
-                  <span class="text-green-600" title="Оплачено">+€${paid.toLocaleString()}</span>
-                  <span class="text-red-600" title="Витрати">-€${cmExpenses.toLocaleString()}</span>
+                  <span title="Очікується" class="text-amber-600">€${(expectedThisMonth - paidThisMonth).toLocaleString()}</span>
+                  <span title="Оплачено" class="text-green-600">+€${paidThisMonth.toLocaleString()}</span>
+                  <span title="Витрати" class="text-red-600">-€${expensesThisMonth.toLocaleString()}</span>
                 </div>
                 <button onclick="window.handleSignOut()" class="p-2 text-gray-400 hover:text-gray-600">${icons.logout}</button>
               </div>
             </div>
             <div class="flex gap-1 mt-3 -mb-3">
-              <button onclick="window.setTab('records')" class="px-4 py-2 rounded-t-lg text-sm font-medium flex items-center gap-1 ${activeTab === 'records' ? 'bg-gray-100 text-green-600' : 'text-gray-500'}">
-                ${icons.euro} Оплати
+              <button onclick="window.setTab('clients')" class="px-4 py-2 rounded-t-lg text-sm font-medium flex items-center gap-1 ${activeTab === 'clients' ? 'bg-gray-100 text-green-600' : 'text-gray-500'}">
+                ${icons.salary} Клієнти
               </button>
               <button onclick="window.setTab('expenses')" class="px-4 py-2 rounded-t-lg text-sm font-medium flex items-center gap-1 ${activeTab === 'expenses' ? 'bg-gray-100 text-red-600' : 'text-gray-500'}">
                 ${icons.wallet} Витрати
@@ -235,28 +298,31 @@
       `;
     };
 
-    const renderRecords = () => {
-      let filtered = records;
+    // Render clients
+    const renderClients = () => {
+      let filtered = clients;
+      
       if (filterSearch) {
         const s = filterSearch.toLowerCase();
-        filtered = filtered.filter(r => r.name?.toLowerCase().includes(s) || r.businessName?.toLowerCase().includes(s));
+        filtered = filtered.filter(c => c.name?.toLowerCase().includes(s) || c.businessName?.toLowerCase().includes(s));
       }
-      if (filterMonth) {
-        filtered = filtered.filter(r => r.isDeposit ? false : r.paymentDate?.startsWith(filterMonth));
+      if (filterType) {
+        filtered = filtered.filter(c => c.type === filterType);
+      }
+      if (filterStatus) {
+        filtered = filtered.filter(c => {
+          const status = getClientStatus(c);
+          return status.status === filterStatus;
+        });
       }
 
-      // Separate deposits and group rest by month
-      const deposits = filtered.filter(r => r.isDeposit);
-      const regular = filtered.filter(r => !r.isDeposit);
-      
-      const groups = {};
-      regular.forEach(r => {
-        const m = r.paymentDate ? r.paymentDate.substring(0, 7) : 'no-date';
-        if (!groups[m]) groups[m] = [];
-        groups[m].push(r);
+      // Sort: overdue first, then today, then soon
+      filtered.sort((a, b) => {
+        const statusOrder = { overdue: 0, today: 1, soon: 2, pending: 3, paid: 4, active: 5, waiting: 6, ended: 7 };
+        const sa = getClientStatus(a);
+        const sb = getClientStatus(b);
+        return (statusOrder[sa.status] || 99) - (statusOrder[sb.status] || 99);
       });
-
-      const months = [...new Set(records.filter(r => !r.isDeposit && r.paymentDate).map(r => r.paymentDate.substring(0, 7)))].sort((a, b) => b.localeCompare(a));
 
       const filterPanel = `
         <div class="bg-white rounded-xl shadow-sm p-4 mb-4">
@@ -266,121 +332,464 @@
                 class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
               <span class="absolute left-3 top-2.5 text-gray-400">${icons.search}</span>
             </div>
-            <select onchange="window.setFilter('month', this.value)" class="px-3 py-2 border rounded-lg text-sm">
-              <option value="">Всі місяці</option>
-              ${months.map(m => `<option value="${m}" ${filterMonth === m ? 'selected' : ''}>${getMonthLabel(m)}</option>`).join('')}
+            <select onchange="window.setFilter('type', this.value)" class="px-3 py-2 border rounded-lg text-sm">
+              <option value="">Всі типи</option>
+              ${Object.entries(clientTypes).map(([k, v]) => `<option value="${k}" ${filterType === k ? 'selected' : ''}>${v.label}</option>`).join('')}
             </select>
-            ${(filterSearch || filterMonth) ? `<button onclick="window.clearFilters()" class="p-2 text-gray-400 hover:text-red-500">${icons.close}</button>` : ''}
+            <select onchange="window.setFilter('status', this.value)" class="px-3 py-2 border rounded-lg text-sm">
+              <option value="">Всі статуси</option>
+              <option value="overdue" ${filterStatus === 'overdue' ? 'selected' : ''}>Прострочено</option>
+              <option value="today" ${filterStatus === 'today' ? 'selected' : ''}>Сьогодні</option>
+              <option value="soon" ${filterStatus === 'soon' ? 'selected' : ''}>Скоро</option>
+              <option value="paid" ${filterStatus === 'paid' ? 'selected' : ''}>Оплачено</option>
+            </select>
+            ${(filterSearch || filterType || filterStatus) ? `<button onclick="window.clearFilters()" class="p-2 text-gray-400 hover:text-red-500">${icons.close}</button>` : ''}
           </div>
         </div>
       `;
 
-      // Deposits section
-      let depositsHtml = '';
-      if (deposits.length > 0 && !filterMonth) {
-        depositsHtml = `
-          <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-4">
-            <div class="bg-purple-50 px-4 py-3 flex items-center justify-between">
-              <h3 class="font-bold text-gray-800 flex items-center gap-2">${icons.wallet} Завдатки (${deposits.length})</h3>
-              <span class="text-sm">€${deposits.reduce((s, r) => s + (r.paid || 0), 0).toLocaleString()}</span>
-            </div>
-            <div class="divide-y">
-              ${deposits.map(r => renderRecordRow(r)).join('')}
-            </div>
-          </div>
-        `;
+      if (filtered.length === 0) {
+        return filterPanel + `<div class="bg-white rounded-xl p-8 text-center text-gray-500">
+          ${clients.length === 0 ? 'Немає клієнтів. Натисни "+" щоб додати.' : 'Нічого не знайдено.'}
+        </div>`;
       }
 
-      // Regular records by month
-      const sortedMonths = Object.keys(groups).sort((a, b) => b.localeCompare(a));
-      const monthsHtml = sortedMonths.map(month => {
-        const items = groups[month].sort((a, b) => (a.paymentDate || '').localeCompare(b.paymentDate || ''));
-        const totalAmount = items.reduce((s, r) => s + (r.amount || 0), 0);
-        const totalPaid = items.reduce((s, r) => s + (r.paid || 0), 0);
-        
-        return `
-          <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-4">
-            <div class="bg-green-50 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-              <h3 class="font-bold text-gray-800 flex items-center gap-2">${icons.calendar} ${month === 'no-date' ? 'Без дати' : getMonthLabel(month)}</h3>
-              <div class="flex gap-4 text-sm">
-                <span>Очікується: <b class="text-amber-600">€${(totalAmount - totalPaid).toLocaleString()}</b></span>
-                <span>Оплачено: <b class="text-green-600">€${totalPaid.toLocaleString()}</b></span>
+      return filterPanel + `
+        <div class="space-y-3">
+          ${filtered.map(c => {
+            const type = clientTypes[c.type] || clientTypes.regular;
+            const status = getClientStatus(c);
+            const statusColors = {
+              red: 'bg-red-100 text-red-700 border-red-200',
+              orange: 'bg-orange-100 text-orange-700 border-orange-200',
+              amber: 'bg-amber-100 text-amber-700 border-amber-200',
+              green: 'bg-green-100 text-green-700 border-green-200',
+              gray: 'bg-gray-100 text-gray-600 border-gray-200',
+            };
+            
+            let amountDisplay = '';
+            if (c.type === 'regular') {
+              amountDisplay = `€${(c.monthlyAmount || 0).toLocaleString()}/міс`;
+            } else if (c.type === 'installment') {
+              const total = (c.payments || []).reduce((s, p) => s + (p.amount || 0), 0);
+              const paid = (c.payments || []).filter(p => p.paid).reduce((s, p) => s + (p.amount || 0), 0);
+              amountDisplay = `€${paid.toLocaleString()} / €${total.toLocaleString()}`;
+            } else if (c.type === 'prepaid') {
+              amountDisplay = `€${(c.totalAmount || 0).toLocaleString()}`;
+            } else if (c.type === 'deposit') {
+              amountDisplay = `€${(c.depositAmount || 0).toLocaleString()} / €${(c.totalAmount || 0).toLocaleString()}`;
+            }
+
+            return `
+              <div class="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition cursor-pointer ${status.status === 'overdue' ? 'border-l-4 border-red-500' : status.status === 'today' ? 'border-l-4 border-orange-500' : ''}" 
+                onclick="window.viewClient('${c.id}')">
+                <div class="flex items-center gap-4">
+                  <div class="w-10 h-10 rounded-full bg-${type.color}-100 text-${type.color}-600 flex items-center justify-center">
+                    ${type.icon}
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="font-bold text-gray-800">${c.name}</div>
+                    <div class="text-sm text-gray-500 flex items-center gap-2">
+                      ${c.businessName ? `<span>${c.businessName}</span>` : ''}
+                      <span class="text-${type.color}-600">${type.label}</span>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <div class="font-bold text-gray-800">${amountDisplay}</div>
+                    <span class="inline-block px-2 py-0.5 rounded text-xs border ${statusColors[status.color]}">${status.label}</span>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    };
+
+    // Render client card
+    const renderClientCard = () => {
+      if (!viewingClient) return '';
+      const c = viewingClient;
+      const type = clientTypes[c.type] || clientTypes.regular;
+      const status = getClientStatus(c);
+      const cm = getCurrentMonth();
+
+      return `
+        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick="if(event.target===this) window.closeCard()">
+          <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div class="bg-${type.color}-500 text-white p-4 rounded-t-2xl">
+              <div class="flex justify-between items-start">
+                <div>
+                  <div class="text-${type.color}-200 text-sm flex items-center gap-1">${type.icon} ${type.label}</div>
+                  <h2 class="text-xl font-bold mt-1">${c.name}</h2>
+                  ${c.businessName ? `<div class="text-${type.color}-100">${c.businessName}</div>` : ''}
+                </div>
+                <button onclick="window.closeCard()" class="p-1 hover:bg-white/20 rounded">${icons.close}</button>
               </div>
             </div>
-            <div class="divide-y">${items.map(r => renderRecordRow(r)).join('')}</div>
-          </div>
-        `;
-      }).join('');
+            
+            <div class="p-4 space-y-4">
+              <!-- Contacts -->
+              ${(c.phone || c.email || c.telegram) ? `
+                <div>
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Контакти</div>
+                  <div class="space-y-2">
+                    ${c.phone ? `<a href="tel:${c.phone}" class="flex items-center gap-2 text-gray-700 hover:text-green-600">${icons.phone} ${c.phone}</a>` : ''}
+                    ${c.email ? `<a href="mailto:${c.email}" class="flex items-center gap-2 text-gray-700 hover:text-green-600">${icons.mail} ${c.email}</a>` : ''}
+                    ${c.telegram ? `<a href="https://t.me/${c.telegram.replace('@','')}" target="_blank" class="flex items-center gap-2 text-gray-700 hover:text-green-600">${icons.send} ${c.telegram}</a>` : ''}
+                  </div>
+                </div>
+              ` : ''}
 
-      if (deposits.length === 0 && sortedMonths.length === 0) {
-        return filterPanel + `<div class="bg-white rounded-xl p-8 text-center text-gray-500">Немає записів. Натисни "+" щоб додати.</div>`;
-      }
+              <!-- Info -->
+              ${(c.city || c.serviceType) ? `
+                <div>
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Інформація</div>
+                  <div class="space-y-1 text-sm">
+                    ${c.city ? `<div class="flex items-center gap-2">${icons.mapPin} ${c.city}</div>` : ''}
+                    ${c.serviceType ? `<div class="flex items-center gap-2">${icons.building} ${serviceTypes.find(s => s.value === c.serviceType)?.label || c.serviceType}</div>` : ''}
+                  </div>
+                </div>
+              ` : ''}
 
-      return filterPanel + depositsHtml + monthsHtml;
-    };
+              <!-- Type-specific info -->
+              ${c.type === 'regular' ? `
+                <div>
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Щомісячний платіж</div>
+                  <div class="bg-blue-50 rounded-lg p-4">
+                    <div class="flex justify-between items-center mb-3">
+                      <span class="text-2xl font-bold text-blue-700">€${(c.monthlyAmount || 0).toLocaleString()}</span>
+                      <span class="text-blue-600">${c.paymentDay}-го числа</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                      <span>Статус ${getMonthLabel(cm)}:</span>
+                      <span class="font-bold ${status.status === 'paid' ? 'text-green-600' : status.status === 'overdue' ? 'text-red-600' : 'text-amber-600'}">${status.label}</span>
+                    </div>
+                    ${status.status !== 'paid' ? `
+                      <button onclick="window.markPaid('${c.id}')" class="w-full mt-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center justify-center gap-2">
+                        ${icons.check} Позначити оплаченим
+                      </button>
+                    ` : ''}
+                  </div>
+                </div>
+                
+                <!-- Payment history -->
+                ${(c.paymentHistory || []).length > 0 ? `
+                  <div>
+                    <div class="text-xs font-bold text-gray-500 uppercase mb-2">Історія оплат</div>
+                    <div class="space-y-1 max-h-32 overflow-y-auto">
+                      ${(c.paymentHistory || []).slice().reverse().map(p => `
+                        <div class="flex justify-between text-sm py-1 border-b">
+                          <span>${getMonthLabel(p.month)}</span>
+                          <span class="text-green-600">€${p.amount?.toLocaleString() || 0} — ${formatDate(p.paidAt)}</span>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                ` : ''}
+              ` : ''}
 
-    const renderRecordRow = (r) => {
-      const status = getStatus(r);
-      const statusInfo = getStatusInfo(status);
-      const isPastDue = !r.isDeposit && status === 'pending' && isDatePast(r.paymentDate);
-      
-      return `
-        <div class="px-4 py-3 flex items-center gap-3 hover:bg-gray-50 cursor-pointer ${isPastDue ? 'bg-red-50' : ''}" onclick="window.viewRecord('${r.id}')">
-          <div class="flex-1 min-w-0">
-            <div class="font-medium text-gray-800">${r.name}</div>
-            <div class="text-sm text-gray-500 flex items-center gap-2">
-              ${r.businessName ? `<span>${r.businessName}</span>` : ''}
-              ${!r.isDeposit && r.paymentDate ? `<span class="${isPastDue ? 'text-red-600' : ''}">${formatDate(r.paymentDate)}</span>` : ''}
+              ${c.type === 'installment' ? `
+                <div>
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Графік платежів</div>
+                  <div class="space-y-2">
+                    ${(c.payments || []).map((p, idx) => `
+                      <div class="flex items-center gap-3 p-2 rounded-lg ${p.paid ? 'bg-green-50' : isDatePast(p.date) ? 'bg-red-50' : 'bg-gray-50'}">
+                        <button onclick="window.toggleInstallmentPayment('${c.id}', ${idx})" 
+                          class="w-6 h-6 rounded-full border-2 flex items-center justify-center ${p.paid ? 'bg-green-500 border-green-500 text-white' : 'border-gray-300 hover:border-green-500'}">
+                          ${p.paid ? icons.check : ''}
+                        </button>
+                        <div class="flex-1">
+                          <span class="${isDatePast(p.date) && !p.paid ? 'text-red-600' : ''}">${formatDate(p.date)}</span>
+                        </div>
+                        <span class="font-bold ${p.paid ? 'text-green-600' : ''}">€${(p.amount || 0).toLocaleString()}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
+
+              ${c.type === 'prepaid' ? `
+                <div>
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Передоплата</div>
+                  <div class="bg-green-50 rounded-lg p-4 space-y-2">
+                    <div class="flex justify-between">
+                      <span>Сума:</span>
+                      <span class="font-bold">€${(c.totalAmount || 0).toLocaleString()}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>Період:</span>
+                      <span>${formatDate(c.startDate)} — ${formatDate(c.endDate)}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>Статус:</span>
+                      <span class="font-bold ${status.color === 'green' ? 'text-green-600' : 'text-amber-600'}">${status.label}</span>
+                    </div>
+                  </div>
+                </div>
+              ` : ''}
+
+              ${c.type === 'deposit' ? `
+                <div>
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Завдаток</div>
+                  <div class="bg-amber-50 rounded-lg p-4 space-y-2">
+                    <div class="flex justify-between">
+                      <span>Сума договору:</span>
+                      <span class="font-bold">€${(c.totalAmount || 0).toLocaleString()}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>Завдаток:</span>
+                      <span class="font-bold text-green-600">€${(c.depositAmount || 0).toLocaleString()}</span>
+                    </div>
+                    <div class="flex justify-between">
+                      <span>Залишок:</span>
+                      <span class="font-bold text-amber-600">€${((c.totalAmount || 0) - (c.depositAmount || 0)).toLocaleString()}</span>
+                    </div>
+                    ${c.startDate ? `
+                      <div class="flex justify-between">
+                        <span>Дата старту:</span>
+                        <span>${formatDate(c.startDate)}</span>
+                      </div>
+                    ` : `<div class="text-amber-600 text-sm">Дата старту не визначена</div>`}
+                  </div>
+                </div>
+              ` : ''}
+
+              <!-- Terms -->
+              ${c.terms ? `
+                <div>
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Умови та домовленості</div>
+                  <div class="bg-yellow-50 rounded-lg p-3 text-sm whitespace-pre-wrap">${c.terms}</div>
+                </div>
+              ` : ''}
             </div>
-          </div>
-          <span class="px-2 py-1 rounded text-xs ${statusInfo.class}">${statusInfo.label}</span>
-          <div class="text-right">
-            <div class="font-bold ${statusInfo.color}">€${(r.amount || 0).toLocaleString()}</div>
-            ${status === 'pending' && r.paid > 0 ? `<div class="text-xs text-gray-500">сплач. €${r.paid}</div>` : ''}
-          </div>
-          <div class="flex gap-1">
-            ${!r.isDeposit ? `<button onclick="event.stopPropagation(); window.continueRecord('${r.id}')" class="p-2 text-gray-400 hover:text-green-500" title="+1 місяць">${icons.copy}</button>` : ''}
-            <button onclick="event.stopPropagation(); window.editRecord('${r.id}')" class="p-2 text-gray-400 hover:text-blue-500">${icons.edit}</button>
-            <button onclick="event.stopPropagation(); window.deleteRecordConfirm('${r.id}')" class="p-2 text-gray-400 hover:text-red-500">${icons.trash}</button>
+
+            <div class="p-4 border-t flex gap-2">
+              <button onclick="window.editClient('${c.id}')" class="flex-1 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center gap-2">${icons.edit} Редагувати</button>
+              <button onclick="window.deleteClientConfirm('${c.id}')" class="py-2 px-4 bg-red-100 text-red-600 rounded-lg hover:bg-red-200">${icons.trash}</button>
+            </div>
           </div>
         </div>
       `;
     };
 
+    // Render form
+    const renderForm = () => {
+      if (!showForm && !editingClient) return '';
+      const isEdit = !!editingClient;
+      const c = editingClient || { type: 'regular', name: '', phone: '', email: '', telegram: '', businessName: '', city: '', serviceType: '', terms: '' };
+
+      return `
+        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick="if(event.target===this) window.closeForm()">
+          <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div class="p-4 border-b flex justify-between items-center sticky top-0 bg-white rounded-t-2xl">
+              <h3 class="text-lg font-bold">${isEdit ? 'Редагувати клієнта' : 'Новий клієнт'}</h3>
+              <button onclick="window.closeForm()" class="p-1 text-gray-400">${icons.close}</button>
+            </div>
+            
+            <form onsubmit="window.saveClient(event)" class="p-4 space-y-4">
+              <!-- Client type -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Тип клієнта</label>
+                <div class="grid grid-cols-2 gap-2">
+                  ${Object.entries(clientTypes).map(([k, v]) => `
+                    <label class="flex items-center gap-2 p-3 border rounded-lg cursor-pointer hover:bg-gray-50 ${c.type === k ? `border-${v.color}-500 bg-${v.color}-50` : ''}">
+                      <input type="radio" name="type" value="${k}" ${c.type === k ? 'checked' : ''} onchange="window.updateFormType('${k}')" class="hidden">
+                      <span class="text-${v.color}-600">${v.icon}</span>
+                      <div>
+                        <div class="font-medium text-sm">${v.label}</div>
+                        <div class="text-xs text-gray-500">${v.description}</div>
+                      </div>
+                    </label>
+                  `).join('')}
+                </div>
+              </div>
+
+              <!-- Basic info -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Імʼя клієнта *</label>
+                <input type="text" name="name" value="${c.name || ''}" required class="w-full px-3 py-2 border rounded-lg">
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
+                  <input type="tel" name="phone" value="${c.phone || ''}" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Telegram</label>
+                  <input type="text" name="telegram" value="${c.telegram || ''}" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Бізнес</label>
+                  <input type="text" name="businessName" value="${c.businessName || ''}" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Місто</label>
+                  <input type="text" name="city" value="${c.city || ''}" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Тип послуги</label>
+                <select name="serviceType" class="w-full px-3 py-2 border rounded-lg">
+                  <option value="">Не вказано</option>
+                  ${serviceTypes.map(s => `<option value="${s.value}" ${c.serviceType === s.value ? 'selected' : ''}>${s.label}</option>`).join('')}
+                </select>
+              </div>
+
+              <!-- Type-specific fields -->
+              <div id="typeFields" class="border-t pt-4 space-y-4">
+                ${renderTypeFields(c)}
+              </div>
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Умови та домовленості</label>
+                <textarea name="terms" rows="2" class="w-full px-3 py-2 border rounded-lg">${c.terms || ''}</textarea>
+              </div>
+
+              <div class="flex gap-2 pt-4 border-t">
+                <button type="submit" class="flex-1 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600">${icons.check} Зберегти</button>
+                <button type="button" onclick="window.closeForm()" class="flex-1 py-2 bg-gray-200 rounded-lg">Скасувати</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+    };
+
+    const renderTypeFields = (c) => {
+      const type = c.type || 'regular';
+      
+      if (type === 'regular') {
+        return `
+          <div class="bg-blue-50 rounded-lg p-4 space-y-4">
+            <h4 class="font-medium text-blue-800">Щомісячний платіж</h4>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm text-gray-700 mb-1">Сума €/міс *</label>
+                <input type="number" name="monthlyAmount" value="${c.monthlyAmount || ''}" required class="w-full px-3 py-2 border rounded-lg">
+              </div>
+              <div>
+                <label class="block text-sm text-gray-700 mb-1">День оплати *</label>
+                <input type="number" name="paymentDay" min="1" max="31" value="${c.paymentDay || ''}" required class="w-full px-3 py-2 border rounded-lg" placeholder="1-31">
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      
+      if (type === 'installment') {
+        const payments = c.payments || [{ date: '', amount: '' }];
+        return `
+          <div class="bg-purple-50 rounded-lg p-4 space-y-4">
+            <div class="flex justify-between items-center">
+              <h4 class="font-medium text-purple-800">Графік платежів</h4>
+              <button type="button" onclick="window.addPaymentRow()" class="text-purple-600 text-sm flex items-center gap-1">${icons.plus} Додати</button>
+            </div>
+            <div id="paymentsContainer" class="space-y-2">
+              ${payments.map((p, idx) => `
+                <div class="payment-row flex gap-2 items-center">
+                  <input type="date" name="pDate_${idx}" value="${p.date || ''}" class="flex-1 px-3 py-2 border rounded-lg text-sm">
+                  <input type="number" name="pAmount_${idx}" value="${p.amount || ''}" placeholder="Сума €" class="w-28 px-3 py-2 border rounded-lg text-sm">
+                  <label class="flex items-center gap-1">
+                    <input type="checkbox" name="pPaid_${idx}" ${p.paid ? 'checked' : ''} class="rounded">
+                    <span class="text-xs">Спл.</span>
+                  </label>
+                  ${idx > 0 ? `<button type="button" onclick="this.closest('.payment-row').remove()" class="p-1 text-gray-400 hover:text-red-500">${icons.trash}</button>` : '<div class="w-6"></div>'}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+      
+      if (type === 'prepaid') {
+        return `
+          <div class="bg-green-50 rounded-lg p-4 space-y-4">
+            <h4 class="font-medium text-green-800">Передоплата</h4>
+            <div>
+              <label class="block text-sm text-gray-700 mb-1">Сума € *</label>
+              <input type="number" name="totalAmount" value="${c.totalAmount || ''}" required class="w-full px-3 py-2 border rounded-lg">
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm text-gray-700 mb-1">Початок</label>
+                <input type="date" name="startDate" value="${c.startDate || ''}" class="w-full px-3 py-2 border rounded-lg">
+              </div>
+              <div>
+                <label class="block text-sm text-gray-700 mb-1">Закінчення</label>
+                <input type="date" name="endDate" value="${c.endDate || ''}" class="w-full px-3 py-2 border rounded-lg">
+              </div>
+            </div>
+          </div>
+        `;
+      }
+      
+      if (type === 'deposit') {
+        return `
+          <div class="bg-amber-50 rounded-lg p-4 space-y-4">
+            <h4 class="font-medium text-amber-800">Завдаток</h4>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm text-gray-700 mb-1">Сума договору € *</label>
+                <input type="number" name="totalAmount" value="${c.totalAmount || ''}" required class="w-full px-3 py-2 border rounded-lg">
+              </div>
+              <div>
+                <label class="block text-sm text-gray-700 mb-1">Завдаток €</label>
+                <input type="number" name="depositAmount" value="${c.depositAmount || ''}" class="w-full px-3 py-2 border rounded-lg">
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm text-gray-700 mb-1">Планова дата старту</label>
+              <input type="date" name="startDate" value="${c.startDate || ''}" class="w-full px-3 py-2 border rounded-lg">
+            </div>
+          </div>
+        `;
+      }
+      
+      return '';
+    };
+
+    // Render expenses
     const renderExpenses = () => {
       const groups = {};
       expenses.forEach(e => {
-        const m = e.date ? e.date.substring(0, 7) : 'no-date';
+        const m = e.date?.substring(0, 7) || 'no-date';
         if (!groups[m]) groups[m] = [];
         groups[m].push(e);
       });
 
       const sortedMonths = Object.keys(groups).sort((a, b) => b.localeCompare(a));
+      
       if (sortedMonths.length === 0) {
         return `<div class="bg-white rounded-xl p-8 text-center text-gray-500">Немає витрат.</div>`;
       }
 
       return sortedMonths.map(month => {
-        const items = groups[month].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        const items = groups[month];
         const total = items.reduce((s, e) => s + (e.amount || 0), 0);
         
         return `
           <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-4">
-            <div class="bg-red-50 px-4 py-3 flex items-center justify-between">
-              <h3 class="font-bold text-gray-800">${icons.calendar} ${month === 'no-date' ? 'Без дати' : getMonthLabel(month)}</h3>
-              <span class="text-sm">Всього: <b class="text-red-600">€${total.toLocaleString()}</b></span>
+            <div class="bg-red-50 px-4 py-3 flex justify-between">
+              <h3 class="font-bold">${icons.calendar} ${month === 'no-date' ? 'Без дати' : getMonthLabel(month)}</h3>
+              <span class="text-red-600 font-bold">€${total.toLocaleString()}</span>
             </div>
             <div class="divide-y">
               ${items.map(e => {
                 const cat = expenseCategories.find(c => c.value === e.category);
                 return `
-                  <div class="px-4 py-3 flex items-center gap-4 hover:bg-gray-50">
+                  <div class="px-4 py-3 flex items-center gap-4">
                     <div class="w-10 h-10 rounded-lg bg-red-100 text-red-600 flex items-center justify-center">${icons[cat?.icon] || icons.box}</div>
                     <div class="flex-1">
                       <div class="font-medium">${e.description}</div>
-                      <div class="text-sm text-gray-500">${formatDate(e.date)} · ${cat?.label || 'Інше'}</div>
+                      <div class="text-sm text-gray-500">${formatDate(e.date)}</div>
                     </div>
-                    <div class="font-medium text-red-600">-€${(e.amount || 0).toLocaleString()}</div>
+                    <div class="font-bold text-red-600">-€${e.amount?.toLocaleString()}</div>
                     <button onclick="window.editExpense('${e.id}')" class="p-2 text-gray-400 hover:text-blue-500">${icons.edit}</button>
                     <button onclick="window.deleteExpenseConfirm('${e.id}')" class="p-2 text-gray-400 hover:text-red-500">${icons.trash}</button>
                   </div>
@@ -392,24 +801,80 @@
       }).join('');
     };
 
+    // Render expense form
+    const renderExpenseForm = () => {
+      if (!showExpenseForm && !editingExpense) return '';
+      const e = editingExpense || { description: '', date: getToday(), category: 'other', amount: '' };
+
+      return `
+        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick="if(event.target===this) window.closeExpenseForm()">
+          <div class="bg-white rounded-2xl p-6 w-full max-w-md">
+            <div class="flex justify-between mb-4">
+              <h3 class="text-lg font-bold">${editingExpense ? 'Редагувати' : 'Нова витрата'}</h3>
+              <button onclick="window.closeExpenseForm()" class="text-gray-400">${icons.close}</button>
+            </div>
+            <form onsubmit="window.saveExpense(event)" class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium mb-1">Опис *</label>
+                <input type="text" name="description" value="${e.description}" required class="w-full px-3 py-2 border rounded-lg">
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium mb-1">Дата</label>
+                  <input type="date" name="date" value="${e.date}" class="w-full px-3 py-2 border rounded-lg">
+                </div>
+                <div>
+                  <label class="block text-sm font-medium mb-1">Сума € *</label>
+                  <input type="number" name="amount" value="${e.amount}" required class="w-full px-3 py-2 border rounded-lg">
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-1">Категорія</label>
+                <select name="category" class="w-full px-3 py-2 border rounded-lg">
+                  ${expenseCategories.map(c => `<option value="${c.value}" ${e.category === c.value ? 'selected' : ''}>${c.label}</option>`).join('')}
+                </select>
+              </div>
+              <div class="flex gap-2 pt-4">
+                <button type="submit" class="flex-1 py-2 bg-red-500 text-white rounded-lg">${icons.check} Зберегти</button>
+                <button type="button" onclick="window.closeExpenseForm()" class="flex-1 py-2 bg-gray-200 rounded-lg">Скасувати</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+    };
+
+    // Render finance
     const renderFinance = () => {
       const allMonths = [...new Set([
-        ...records.filter(r => !r.isDeposit && r.paymentDate).map(r => r.paymentDate.substring(0, 7)),
-        ...expenses.filter(e => e.date).map(e => e.date.substring(0, 7))
+        ...clients.flatMap(c => {
+          if (c.type === 'regular') return (c.paymentHistory || []).map(p => p.month);
+          if (c.type === 'installment') return (c.payments || []).filter(p => p.paid).map(p => p.date?.substring(0, 7));
+          return [];
+        }).filter(Boolean),
+        ...expenses.map(e => e.date?.substring(0, 7)).filter(Boolean)
       ])].sort((a, b) => b.localeCompare(a));
 
       if (allMonths.length === 0) return `<div class="bg-white rounded-xl p-8 text-center text-gray-500">Немає даних.</div>`;
 
       const data = allMonths.map(m => {
-        const mRecords = records.filter(r => !r.isDeposit && r.paymentDate?.startsWith(m));
-        const mExpenses = expenses.filter(e => e.date?.startsWith(m));
-        const income = mRecords.reduce((s, r) => s + (r.paid || 0), 0);
-        const expected = mRecords.reduce((s, r) => s + (r.amount || 0), 0);
-        const expense = mExpenses.reduce((s, e) => s + (e.amount || 0), 0);
-        return { month: m, income, expected, expense, profit: income - expense };
+        let income = 0;
+        clients.forEach(c => {
+          if (c.type === 'regular') {
+            const paid = (c.paymentHistory || []).find(p => p.month === m);
+            if (paid) income += paid.amount || 0;
+          }
+          if (c.type === 'installment') {
+            (c.payments || []).forEach(p => {
+              if (p.paid && p.date?.startsWith(m)) income += p.amount || 0;
+            });
+          }
+        });
+        const expense = expenses.filter(e => e.date?.startsWith(m)).reduce((s, e) => s + (e.amount || 0), 0);
+        return { month: m, income, expense, profit: income - expense };
       });
 
-      const totals = data.reduce((acc, m) => ({ income: acc.income + m.income, expense: acc.expense + m.expense }), { income: 0, expense: 0 });
+      const totals = data.reduce((a, d) => ({ income: a.income + d.income, expense: a.expense + d.expense }), { income: 0, expense: 0 });
 
       return `
         <div class="grid grid-cols-3 gap-4 mb-6">
@@ -429,16 +894,15 @@
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
           <table class="w-full">
             <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
-              <tr><th class="px-4 py-3 text-left">Місяць</th><th class="px-4 py-3 text-right">Очікується</th><th class="px-4 py-3 text-right">Дохід</th><th class="px-4 py-3 text-right">Витрати</th><th class="px-4 py-3 text-right">Прибуток</th></tr>
+              <tr><th class="px-4 py-3 text-left">Місяць</th><th class="px-4 py-3 text-right">Дохід</th><th class="px-4 py-3 text-right">Витрати</th><th class="px-4 py-3 text-right">Прибуток</th></tr>
             </thead>
             <tbody class="divide-y">
-              ${data.map(m => `
-                <tr class="hover:bg-gray-50">
-                  <td class="px-4 py-3 font-medium">${getMonthLabel(m.month)}</td>
-                  <td class="px-4 py-3 text-right text-gray-500">€${m.expected.toLocaleString()}</td>
-                  <td class="px-4 py-3 text-right text-green-600">+€${m.income.toLocaleString()}</td>
-                  <td class="px-4 py-3 text-right text-red-600">-€${m.expense.toLocaleString()}</td>
-                  <td class="px-4 py-3 text-right font-bold ${m.profit >= 0 ? 'text-blue-600' : 'text-orange-600'}">€${m.profit.toLocaleString()}</td>
+              ${data.map(d => `
+                <tr>
+                  <td class="px-4 py-3 font-medium">${getMonthLabel(d.month)}</td>
+                  <td class="px-4 py-3 text-right text-green-600">+€${d.income.toLocaleString()}</td>
+                  <td class="px-4 py-3 text-right text-red-600">-€${d.expense.toLocaleString()}</td>
+                  <td class="px-4 py-3 text-right font-bold ${d.profit >= 0 ? 'text-blue-600' : 'text-orange-600'}">€${d.profit.toLocaleString()}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -447,420 +911,129 @@
       `;
     };
 
-    const renderRecordCard = () => {
-      if (!viewingRecord) return '';
-      const r = viewingRecord;
-      const status = getStatus(r);
-      const statusInfo = getStatusInfo(status);
-      const service = serviceTypes.find(s => s.value === r.serviceType);
-
-      return `
-        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick="if(event.target===this) window.closeCard()">
-          <div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
-            <div class="bg-green-500 text-white p-4 rounded-t-2xl">
-              <div class="flex justify-between">
-                <div>
-                  <h2 class="text-xl font-bold">${r.name}</h2>
-                  ${r.businessName ? `<div class="text-green-100">${r.businessName}</div>` : ''}
-                </div>
-                <button onclick="window.closeCard()" class="p-1 hover:bg-white/20 rounded">${icons.close}</button>
-              </div>
-            </div>
-            <div class="p-4 space-y-4">
-              <!-- Contacts -->
-              ${(r.phone || r.email || r.telegram) ? `
-                <div>
-                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Контакти</div>
-                  <div class="space-y-2">
-                    ${r.phone ? `<a href="tel:${r.phone}" class="flex items-center gap-2 text-gray-700 hover:text-green-600">${icons.phone} ${r.phone}</a>` : ''}
-                    ${r.email ? `<a href="mailto:${r.email}" class="flex items-center gap-2 text-gray-700 hover:text-green-600">${icons.mail} ${r.email}</a>` : ''}
-                    ${r.telegram ? `<a href="https://t.me/${r.telegram.replace('@','')}" target="_blank" class="flex items-center gap-2 text-gray-700 hover:text-green-600">${icons.send} ${r.telegram}</a>` : ''}
-                  </div>
-                </div>
-              ` : ''}
-              
-              <!-- Info -->
-              ${(r.city || service) ? `
-                <div>
-                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Інформація</div>
-                  <div class="space-y-1 text-sm">
-                    ${r.city ? `<div class="flex items-center gap-2">${icons.mapPin} ${r.city}</div>` : ''}
-                    ${service ? `<div class="flex items-center gap-2">${icons.building} ${service.label}</div>` : ''}
-                  </div>
-                </div>
-              ` : ''}
-
-              <!-- Payment -->
-              <div>
-                <div class="text-xs font-bold text-gray-500 uppercase mb-2">Платіж</div>
-                <div class="bg-gray-50 rounded-lg p-3 space-y-2">
-                  <div class="flex justify-between">
-                    <span>Статус:</span>
-                    <span class="px-2 py-0.5 rounded text-xs ${statusInfo.class}">${statusInfo.label}</span>
-                  </div>
-                  ${!r.isDeposit && r.paymentDate ? `
-                    <div class="flex justify-between">
-                      <span>Дата:</span>
-                      <span class="font-medium">${formatDate(r.paymentDate)}</span>
-                    </div>
-                  ` : ''}
-                  <div class="flex justify-between">
-                    <span>Сума:</span>
-                    <span class="font-bold">€${(r.amount || 0).toLocaleString()}</span>
-                  </div>
-                  <div class="flex justify-between">
-                    <span>Сплачено:</span>
-                    <span class="font-bold text-green-600">€${(r.paid || 0).toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Terms -->
-              ${r.terms ? `
-                <div>
-                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Умови та домовленості</div>
-                  <div class="bg-yellow-50 rounded-lg p-3 text-sm whitespace-pre-wrap">${r.terms}</div>
-                </div>
-              ` : ''}
-
-              <!-- Comment -->
-              ${r.comment ? `
-                <div>
-                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Коментар</div>
-                  <div class="bg-gray-50 rounded-lg p-3 text-sm">${r.comment}</div>
-                </div>
-              ` : ''}
-            </div>
-            <div class="p-4 border-t flex gap-2">
-              <button onclick="window.editRecord('${r.id}')" class="flex-1 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center gap-2">${icons.edit} Редагувати</button>
-              ${!r.isDeposit ? `<button onclick="window.continueRecord('${r.id}')" class="py-2 px-4 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 flex items-center gap-1">${icons.copy} +1 міс</button>` : ''}
-            </div>
-          </div>
-        </div>
-      `;
-    };
-
-    const renderForm = () => {
-      if (!showForm && !editingRecord) return '';
-      const isEdit = !!editingRecord;
-      const r = editingRecord || { name: '', phone: '', email: '', telegram: '', businessName: '', city: '', serviceType: '', paymentDate: '', amount: '', paid: '', isDeposit: false, terms: '', comment: '' };
-
-      return `
-        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick="if(event.target===this) window.closeForm()">
-          <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div class="p-4 border-b flex justify-between items-center sticky top-0 bg-white">
-              <h3 class="text-lg font-bold">${isEdit ? 'Редагувати' : 'Новий запис'}</h3>
-              <button onclick="window.closeForm()" class="p-1 text-gray-400 hover:text-gray-600">${icons.close}</button>
-            </div>
-            <form onsubmit="window.saveRecord(event)" class="p-4 space-y-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Імʼя клієнта *</label>
-                <input type="text" name="name" value="${r.name || ''}" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
-              </div>
-
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
-                  <input type="tel" name="phone" value="${r.phone || ''}" placeholder="+380..." class="w-full px-3 py-2 border rounded-lg">
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Telegram</label>
-                  <input type="text" name="telegram" value="${r.telegram || ''}" placeholder="@username" class="w-full px-3 py-2 border rounded-lg">
-                </div>
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input type="email" name="email" value="${r.email || ''}" class="w-full px-3 py-2 border rounded-lg">
-              </div>
-
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Бізнес/Компанія</label>
-                  <input type="text" name="businessName" value="${r.businessName || ''}" class="w-full px-3 py-2 border rounded-lg">
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Місто</label>
-                  <input type="text" name="city" value="${r.city || ''}" class="w-full px-3 py-2 border rounded-lg">
-                </div>
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Тип послуги</label>
-                <select name="serviceType" class="w-full px-3 py-2 border rounded-lg">
-                  <option value="">Не вказано</option>
-                  ${serviceTypes.map(s => `<option value="${s.value}" ${r.serviceType === s.value ? 'selected' : ''}>${s.label}</option>`).join('')}
-                </select>
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Умови та домовленості</label>
-                <textarea name="terms" rows="2" placeholder="Опишіть умови співпраці..." class="w-full px-3 py-2 border rounded-lg">${r.terms || ''}</textarea>
-              </div>
-
-              <!-- Payment section -->
-              <div class="border-t pt-4">
-                <div class="flex items-center gap-2 mb-4 p-3 bg-purple-50 rounded-lg">
-                  <input type="checkbox" name="isDeposit" id="isDeposit" ${r.isDeposit ? 'checked' : ''} 
-                    onchange="document.getElementById('paymentsSection').style.display = this.checked ? 'none' : 'block'; document.getElementById('depositAmount').style.display = this.checked ? 'block' : 'none';" class="w-4 h-4 text-purple-600 rounded">
-                  <label for="isDeposit" class="text-sm text-purple-700">Завдаток (дата старту невідома)</label>
-                </div>
-
-                <!-- Deposit amount (shown when isDeposit checked) -->
-                <div id="depositAmount" style="${r.isDeposit ? '' : 'display:none'}">
-                  <div class="grid grid-cols-2 gap-4">
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700 mb-1">Сума договору €</label>
-                      <input type="number" name="depositTotalAmount" value="${r.isDeposit ? (r.amount || '') : ''}" class="w-full px-3 py-2 border rounded-lg">
-                    </div>
-                    <div>
-                      <label class="block text-sm font-medium text-gray-700 mb-1">Завдаток €</label>
-                      <input type="number" name="depositPaid" value="${r.isDeposit ? (r.paid || '') : ''}" class="w-full px-3 py-2 border rounded-lg">
-                    </div>
-                  </div>
-                </div>
-
-                <!-- Payments schedule -->
-                <div id="paymentsSection" style="${r.isDeposit ? 'display:none' : ''}">
-                  ${isEdit ? `
-                    <!-- Single payment for edit mode -->
-                    <div class="space-y-3">
-                      <div class="grid grid-cols-3 gap-3">
-                        <div>
-                          <label class="block text-sm font-medium text-gray-700 mb-1">Дата</label>
-                          <input type="date" name="paymentDate" value="${r.paymentDate || ''}" class="w-full px-3 py-2 border rounded-lg">
-                        </div>
-                        <div>
-                          <label class="block text-sm font-medium text-gray-700 mb-1">Сума €</label>
-                          <input type="number" name="amount" value="${r.amount || ''}" class="w-full px-3 py-2 border rounded-lg">
-                        </div>
-                        <div>
-                          <label class="block text-sm font-medium text-gray-700 mb-1">Сплачено €</label>
-                          <input type="number" name="paid" value="${r.paid || ''}" class="w-full px-3 py-2 border rounded-lg">
-                        </div>
-                      </div>
-                    </div>
-                  ` : `
-                    <!-- Multiple payments for new record -->
-                    <div class="flex items-center justify-between mb-2">
-                      <label class="block text-sm font-medium text-gray-700">Графік платежів</label>
-                      <button type="button" onclick="window.addPaymentRow()" class="text-green-600 hover:text-green-700 text-sm flex items-center gap-1">${icons.plus} Додати</button>
-                    </div>
-                    <div id="paymentsContainer" class="space-y-2">
-                      <div class="payment-row grid grid-cols-12 gap-2 items-end">
-                        <div class="col-span-4">
-                          <label class="block text-xs text-gray-500 mb-1">Дата</label>
-                          <input type="date" name="pDate_0" class="w-full px-2 py-2 border rounded-lg text-sm">
-                        </div>
-                        <div class="col-span-3">
-                          <label class="block text-xs text-gray-500 mb-1">Сума €</label>
-                          <input type="number" name="pAmount_0" placeholder="0" class="w-full px-2 py-2 border rounded-lg text-sm">
-                        </div>
-                        <div class="col-span-3">
-                          <label class="block text-xs text-gray-500 mb-1">Сплач. €</label>
-                          <input type="number" name="pPaid_0" placeholder="0" class="w-full px-2 py-2 border rounded-lg text-sm">
-                        </div>
-                        <div class="col-span-2"></div>
-                      </div>
-                    </div>
-                    <p class="text-xs text-gray-400 mt-2">Кожен платіж стане окремим записом у відповідному місяці</p>
-                  `}
-                </div>
-              </div>
-
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Коментар</label>
-                <input type="text" name="comment" value="${r.comment || ''}" class="w-full px-3 py-2 border rounded-lg">
-              </div>
-
-              <div class="flex gap-2 pt-4 border-t">
-                <button type="submit" class="flex-1 py-2 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600">${icons.check} Зберегти</button>
-                <button type="button" onclick="window.closeForm()" class="flex-1 py-2 bg-gray-200 text-gray-700 rounded-lg">Скасувати</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      `;
-    };
-
-    const renderExpenseForm = () => {
-      if (!showExpenseForm && !editingExpense) return '';
-      const isEdit = !!editingExpense;
-      const e = editingExpense || { description: '', date: new Date().toISOString().split('T')[0], category: 'other', amount: '' };
-
-      return `
-        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick="if(event.target===this) window.closeExpenseForm()">
-          <div class="bg-white rounded-2xl p-6 w-full max-w-md">
-            <div class="flex justify-between items-center mb-4">
-              <h3 class="text-lg font-bold">${isEdit ? 'Редагувати' : 'Нова витрата'}</h3>
-              <button onclick="window.closeExpenseForm()" class="p-1 text-gray-400">${icons.close}</button>
-            </div>
-            <form onsubmit="window.saveExpense(event)" class="space-y-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Опис *</label>
-                <input type="text" name="description" value="${e.description || ''}" required class="w-full px-3 py-2 border rounded-lg">
-              </div>
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Дата</label>
-                  <input type="date" name="date" value="${e.date || ''}" class="w-full px-3 py-2 border rounded-lg">
-                </div>
-                <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Сума €</label>
-                  <input type="number" name="amount" value="${e.amount || ''}" required class="w-full px-3 py-2 border rounded-lg">
-                </div>
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Категорія</label>
-                <select name="category" class="w-full px-3 py-2 border rounded-lg">
-                  ${expenseCategories.map(c => `<option value="${c.value}" ${e.category === c.value ? 'selected' : ''}>${c.label}</option>`).join('')}
-                </select>
-              </div>
-              <div class="flex gap-2 pt-4">
-                <button type="submit" class="flex-1 py-2 bg-red-500 text-white rounded-lg">${icons.check} Зберегти</button>
-                <button type="button" onclick="window.closeExpenseForm()" class="flex-1 py-2 bg-gray-200 rounded-lg">Скасувати</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      `;
-    };
-
+    // Main render
     const render = () => {
       if (!currentUser) { document.getElementById('app').innerHTML = renderLogin(); return; }
 
       let content = '';
-      let fabAction = '';
-      let fabColor = '';
+      let fab = '';
       
-      switch(activeTab) {
-        case 'records': content = renderRecords(); fabAction = 'window.openForm()'; fabColor = 'bg-green-500 hover:bg-green-600'; break;
-        case 'expenses': content = renderExpenses(); fabAction = 'window.openExpenseForm()'; fabColor = 'bg-red-500 hover:bg-red-600'; break;
-        case 'finance': content = renderFinance(); break;
+      if (activeTab === 'clients') {
+        content = renderClients();
+        fab = `<button onclick="window.openForm()" class="fixed bottom-6 right-6 w-14 h-14 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-lg flex items-center justify-center">${icons.plus}</button>`;
+      } else if (activeTab === 'expenses') {
+        content = renderExpenses();
+        fab = `<button onclick="window.openExpenseForm()" class="fixed bottom-6 right-6 w-14 h-14 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg flex items-center justify-center">${icons.plus}</button>`;
+      } else {
+        content = renderFinance();
       }
 
       document.getElementById('app').innerHTML = `
         ${renderHeader()}
         <main class="max-w-5xl mx-auto px-4 py-4">${content}</main>
-        ${activeTab !== 'finance' ? `<button onclick="${fabAction}" class="fixed bottom-6 right-6 w-14 h-14 ${fabColor} text-white rounded-full shadow-lg flex items-center justify-center">${icons.plus}</button>` : ''}
+        ${fab}
         ${renderForm()}
         ${renderExpenseForm()}
-        ${renderRecordCard()}
+        ${renderClientCard()}
       `;
     };
 
     // Handlers
     window.handleSignIn = handleSignIn;
     window.handleSignOut = handleSignOut;
-    window.setTab = (t) => { activeTab = t; filterSearch = ''; filterMonth = ''; render(); };
-    window.setFilter = (type, val) => { if(type === 'search') filterSearch = val; if(type === 'month') filterMonth = val; render(); };
-    window.clearFilters = () => { filterSearch = ''; filterMonth = ''; render(); };
+    window.setTab = (t) => { activeTab = t; render(); };
+    window.setFilter = (type, val) => { 
+      if (type === 'search') filterSearch = val;
+      if (type === 'type') filterType = val;
+      if (type === 'status') filterStatus = val;
+      render(); 
+    };
+    window.clearFilters = () => { filterSearch = ''; filterType = ''; filterStatus = ''; render(); };
 
-    window.openForm = () => { showForm = true; editingRecord = null; render(); };
-    window.closeForm = () => { showForm = false; editingRecord = null; render(); };
-    window.editRecord = (id) => { editingRecord = records.find(r => r.id === id); showForm = false; viewingRecord = null; render(); };
-    window.viewRecord = (id) => { viewingRecord = records.find(r => r.id === id); render(); };
-    window.closeCard = () => { viewingRecord = null; render(); };
-    window.deleteRecordConfirm = async (id) => { if(confirm('Видалити запис?')) await deleteRecord(id); };
+    window.openForm = () => { showForm = true; editingClient = null; render(); };
+    window.closeForm = () => { showForm = false; editingClient = null; render(); };
+    window.editClient = (id) => { editingClient = clients.find(c => c.id === id); viewingClient = null; render(); };
+    window.viewClient = (id) => { viewingClient = clients.find(c => c.id === id); render(); };
+    window.closeCard = () => { viewingClient = null; render(); };
+    window.deleteClientConfirm = async (id) => { if (confirm('Видалити клієнта?')) { await deleteClient(id); viewingClient = null; render(); } };
 
     window.openExpenseForm = () => { showExpenseForm = true; editingExpense = null; render(); };
     window.closeExpenseForm = () => { showExpenseForm = false; editingExpense = null; render(); };
-    window.editExpense = (id) => { editingExpense = expenses.find(e => e.id === id); showExpenseForm = false; render(); };
-    window.deleteExpenseConfirm = async (id) => { if(confirm('Видалити витрату?')) await deleteExpense(id); };
+    window.editExpense = (id) => { editingExpense = expenses.find(e => e.id === id); render(); };
+    window.deleteExpenseConfirm = async (id) => { if (confirm('Видалити?')) await deleteExpense(id); };
+
+    window.updateFormType = (type) => {
+      const container = document.getElementById('typeFields');
+      if (container) container.innerHTML = renderTypeFields({ type });
+    };
 
     window.addPaymentRow = () => {
       const container = document.getElementById('paymentsContainer');
       const idx = container.querySelectorAll('.payment-row').length;
       const div = document.createElement('div');
-      div.className = 'payment-row grid grid-cols-12 gap-2 items-end';
+      div.className = 'payment-row flex gap-2 items-center';
       div.innerHTML = `
-        <div class="col-span-4">
-          <input type="date" name="pDate_${idx}" class="w-full px-2 py-2 border rounded-lg text-sm">
-        </div>
-        <div class="col-span-3">
-          <input type="number" name="pAmount_${idx}" placeholder="0" class="w-full px-2 py-2 border rounded-lg text-sm">
-        </div>
-        <div class="col-span-3">
-          <input type="number" name="pPaid_${idx}" placeholder="0" class="w-full px-2 py-2 border rounded-lg text-sm">
-        </div>
-        <div class="col-span-2">
-          <button type="button" onclick="this.closest('.payment-row').remove()" class="p-2 text-gray-400 hover:text-red-500">${icons.trash}</button>
-        </div>
+        <input type="date" name="pDate_${idx}" class="flex-1 px-3 py-2 border rounded-lg text-sm">
+        <input type="number" name="pAmount_${idx}" placeholder="Сума €" class="w-28 px-3 py-2 border rounded-lg text-sm">
+        <label class="flex items-center gap-1">
+          <input type="checkbox" name="pPaid_${idx}" class="rounded">
+          <span class="text-xs">Спл.</span>
+        </label>
+        <button type="button" onclick="this.closest('.payment-row').remove()" class="p-1 text-gray-400 hover:text-red-500">${icons.trash}</button>
       `;
       container.appendChild(div);
     };
 
-    window.saveRecord = async (e) => {
+    window.saveClient = async (e) => {
       e.preventDefault();
       const f = e.target;
+      const type = f.type.value;
       
-      // Base client data
-      const baseData = {
+      const data = {
+        type,
         name: f.name.value,
         phone: f.phone.value,
-        email: f.email.value,
         telegram: f.telegram.value,
         businessName: f.businessName.value,
         city: f.city.value,
         serviceType: f.serviceType.value,
         terms: f.terms.value,
-        comment: f.comment.value
       };
 
-      if (f.isDeposit.checked) {
-        // Deposit mode
-        const data = {
-          ...baseData,
-          paymentDate: '',
-          amount: parseFloat(f.depositTotalAmount?.value) || 0,
-          paid: parseFloat(f.depositPaid?.value) || 0,
-          isDeposit: true
-        };
-        if (editingRecord) await updateRecord(editingRecord.id, data);
-        else await addRecord(data);
-      } else if (editingRecord) {
-        // Edit mode - single record
-        const data = {
-          ...baseData,
-          paymentDate: f.paymentDate.value,
-          amount: parseFloat(f.amount.value) || 0,
-          paid: parseFloat(f.paid.value) || 0,
-          isDeposit: false
-        };
-        await updateRecord(editingRecord.id, data);
-      } else {
-        // New record - collect all payments
-        const rows = f.querySelectorAll('.payment-row');
+      if (type === 'regular') {
+        data.monthlyAmount = parseFloat(f.monthlyAmount.value) || 0;
+        data.paymentDay = parseInt(f.paymentDay.value) || 1;
+        data.paymentHistory = editingClient?.paymentHistory || [];
+      }
+      
+      if (type === 'installment') {
         const payments = [];
-        rows.forEach((row, idx) => {
+        f.querySelectorAll('.payment-row').forEach((row, idx) => {
           const date = f[`pDate_${idx}`]?.value;
           const amount = parseFloat(f[`pAmount_${idx}`]?.value) || 0;
-          const paid = parseFloat(f[`pPaid_${idx}`]?.value) || 0;
-          if (date || amount > 0) {
-            payments.push({ date, amount, paid });
-          }
+          const paid = f[`pPaid_${idx}`]?.checked || false;
+          if (date || amount) payments.push({ date, amount, paid });
         });
-
-        // Create separate record for each payment
-        if (payments.length === 0) {
-          // No payments - create one empty record
-          await addRecord({ ...baseData, paymentDate: '', amount: 0, paid: 0, isDeposit: false });
-        } else {
-          for (const p of payments) {
-            await addRecord({
-              ...baseData,
-              paymentDate: p.date,
-              amount: p.amount,
-              paid: p.paid,
-              isDeposit: false
-            });
-          }
-        }
+        data.payments = payments.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+      }
+      
+      if (type === 'prepaid') {
+        data.totalAmount = parseFloat(f.totalAmount.value) || 0;
+        data.startDate = f.startDate.value;
+        data.endDate = f.endDate.value;
+      }
+      
+      if (type === 'deposit') {
+        data.totalAmount = parseFloat(f.totalAmount.value) || 0;
+        data.depositAmount = parseFloat(f.depositAmount.value) || 0;
+        data.startDate = f.startDate.value;
       }
 
-      showForm = false; 
-      editingRecord = null; 
-      viewingRecord = null; 
+      if (editingClient) await updateClient(editingClient.id, data);
+      else await addClient(data);
+      
+      showForm = false;
+      editingClient = null;
       render();
     };
 
@@ -870,21 +1043,34 @@
       const data = { description: f.description.value, date: f.date.value, category: f.category.value, amount: parseFloat(f.amount.value) || 0 };
       if (editingExpense) await updateExpense(editingExpense.id, data);
       else await addExpense(data);
-      showExpenseForm = false; editingExpense = null; render();
+      showExpenseForm = false;
+      editingExpense = null;
+      render();
     };
 
-    window.continueRecord = async (id) => {
-      const r = records.find(rec => rec.id === id);
-      if (!r) return;
-      const nextDate = getNextMonthDate(r.paymentDate);
-      await addRecord({
-        name: r.name, phone: r.phone, email: r.email, telegram: r.telegram,
-        businessName: r.businessName, city: r.city, serviceType: r.serviceType,
-        paymentDate: nextDate, amount: r.amount, paid: 0, isDeposit: false,
-        terms: r.terms, comment: ''
-      });
-      alert(`Створено запис на ${formatDate(nextDate)}`);
-      viewingRecord = null; render();
+    window.markPaid = async (id) => {
+      const client = clients.find(c => c.id === id);
+      if (!client) return;
+      
+      const cm = getCurrentMonth();
+      const history = client.paymentHistory || [];
+      history.push({ month: cm, amount: client.monthlyAmount, paidAt: getToday() });
+      
+      await updateClient(id, { paymentHistory: history });
+      viewingClient = { ...viewingClient, paymentHistory: history };
+      render();
+    };
+
+    window.toggleInstallmentPayment = async (id, idx) => {
+      const client = clients.find(c => c.id === id);
+      if (!client) return;
+      
+      const payments = [...(client.payments || [])];
+      payments[idx] = { ...payments[idx], paid: !payments[idx].paid };
+      
+      await updateClient(id, { payments });
+      viewingClient = { ...viewingClient, payments };
+      render();
     };
 
     render();
