@@ -84,6 +84,7 @@
       box: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>`,
       download: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>`,
       star: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`,
+      refresh: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>`,
     };
 
     // Client types
@@ -1021,6 +1022,23 @@
                       </div>
                     `).join('')}
                   </div>
+                  
+                  <!-- Summary -->
+                  <div class="mt-3 pt-3 border-t flex justify-between text-sm">
+                    <span class="text-gray-600">Оплачено:</span>
+                    <span class="font-bold text-green-600">€${(c.payments || []).filter(p => p.paid).reduce((s, p) => s + (p.amount || 0), 0).toLocaleString()} з €${(c.payments || []).reduce((s, p) => s + (p.amount || 0), 0).toLocaleString()}</span>
+                  </div>
+                  
+                  <!-- Continue as regular button - shows when all payments are done -->
+                  ${(c.payments || []).every(p => p.paid) ? `
+                    <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+                      <div class="text-sm text-blue-800 mb-2">✅ Всі платежі завершено!</div>
+                      <button onclick="window.convertToRegular('${c.id}')" 
+                        class="w-full py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center gap-2">
+                        ${icons.refresh} Продовжити як регулярного
+                      </button>
+                    </div>
+                  ` : ''}
                 </div>
               ` : ''}
 
@@ -1041,6 +1059,17 @@
                       <span class="font-bold ${status.color === 'green' ? 'text-green-600' : 'text-amber-600'}">${status.label}</span>
                     </div>
                   </div>
+                  
+                  <!-- Continue as regular button - shows when period ended -->
+                  ${isDatePast(c.endDate) ? `
+                    <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+                      <div class="text-sm text-blue-800 mb-2">✅ Період завершено!</div>
+                      <button onclick="window.convertToRegular('${c.id}')" 
+                        class="w-full py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center gap-2">
+                        ${icons.refresh} Продовжити як регулярного
+                      </button>
+                    </div>
+                  ` : ''}
                 </div>
               ` : ''}
 
@@ -1067,6 +1096,21 @@
                       </div>
                     ` : `<div class="text-amber-600 text-sm">Дата старту не визначена</div>`}
                   </div>
+                  
+                  <!-- Start collaboration button -->
+                  <div class="mt-4 p-3 bg-blue-50 rounded-lg">
+                    <div class="text-sm text-blue-800 mb-2">Почати роботу з клієнтом:</div>
+                    <div class="flex gap-2">
+                      <button onclick="window.convertToRegular('${c.id}')" 
+                        class="flex-1 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm">
+                        Регулярна оплата
+                      </button>
+                      <button onclick="window.convertToInstallment('${c.id}')" 
+                        class="flex-1 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 text-sm">
+                        Розтермінування
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ` : ''}
 
@@ -1075,6 +1119,25 @@
                 <div>
                   <div class="text-xs font-bold text-gray-500 uppercase mb-2">Умови та домовленості</div>
                   <div class="bg-yellow-50 rounded-lg p-3 text-sm whitespace-pre-wrap">${c.terms}</div>
+                </div>
+              ` : ''}
+
+              <!-- Contract history -->
+              ${(c.contractHistory && c.contractHistory.length > 0) ? `
+                <div>
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Історія договорів</div>
+                  <div class="space-y-2">
+                    ${c.contractHistory.map((h, idx) => `
+                      <div class="bg-gray-50 rounded-lg p-3 text-sm">
+                        <div class="flex justify-between">
+                          <span class="font-medium">${clientTypes[h.type]?.label || h.type}</span>
+                          <span class="text-gray-500">${formatDate(h.completedAt)}</span>
+                        </div>
+                        ${h.totalAmount ? `<div class="text-gray-600">Сума: €${h.totalAmount.toLocaleString()}</div>` : ''}
+                        ${h.payments ? `<div class="text-gray-600">Платежів: ${h.payments.length}</div>` : ''}
+                      </div>
+                    `).join('')}
+                  </div>
                 </div>
               ` : ''}
 
@@ -1961,6 +2024,100 @@
       await updateClient(id, { clientStatus: status });
       viewingClient = { ...viewingClient, clientStatus: status };
       render();
+    };
+
+    // Convert installment/prepaid/deposit to regular client
+    window.convertToRegular = async (id) => {
+      const client = clients.find(c => c.id === id);
+      if (!client) return;
+      
+      // Ask for monthly amount and payment day
+      const monthlyAmount = prompt('Місячна сума оплати (€):', '');
+      if (!monthlyAmount) return;
+      
+      const paymentDay = prompt('День оплати (1-31):', '15');
+      if (!paymentDay) return;
+      
+      // Save old contract data as history
+      const contractHistory = client.contractHistory || [];
+      contractHistory.push({
+        type: client.type,
+        completedAt: getToday(),
+        payments: client.payments || null,
+        totalAmount: client.totalAmount || null,
+        depositAmount: client.depositAmount || null,
+        startDate: client.startDate || null,
+        endDate: client.endDate || null
+      });
+      
+      // Update to regular client
+      await updateClient(id, {
+        type: 'regular',
+        monthlyAmount: parseFloat(monthlyAmount) || 0,
+        paymentDay: parseInt(paymentDay) || 15,
+        paymentHistory: [],
+        contractHistory: contractHistory,
+        // Clear installment/prepaid/deposit specific fields
+        payments: null,
+        totalAmount: null,
+        depositAmount: null,
+        remainingAmount: null
+      });
+      
+      // Refresh view
+      viewingClient = null;
+      render();
+      alert('✅ Клієнт переведений на регулярну оплату!');
+    };
+
+    // Convert deposit to installment
+    window.convertToInstallment = async (id) => {
+      const client = clients.find(c => c.id === id);
+      if (!client) return;
+      
+      const remainingAmount = (client.totalAmount || 0) - (client.depositAmount || 0);
+      
+      // Ask for number of payments
+      const numPayments = prompt(`Залишок: €${remainingAmount.toLocaleString()}\n\nНа скільки платежів розбити?`, '3');
+      if (!numPayments) return;
+      
+      const num = parseInt(numPayments) || 3;
+      const amountPerPayment = Math.ceil(remainingAmount / num);
+      
+      // Generate payment dates (monthly from today)
+      const payments = [];
+      const today = new Date();
+      for (let i = 0; i < num; i++) {
+        const date = new Date(today);
+        date.setMonth(date.getMonth() + i + 1);
+        payments.push({
+          date: date.toISOString().split('T')[0],
+          amount: i === num - 1 ? remainingAmount - (amountPerPayment * (num - 1)) : amountPerPayment,
+          paid: false
+        });
+      }
+      
+      // Save old deposit data as history
+      const contractHistory = client.contractHistory || [];
+      contractHistory.push({
+        type: 'deposit',
+        completedAt: getToday(),
+        depositAmount: client.depositAmount,
+        totalAmount: client.totalAmount
+      });
+      
+      // Update to installment
+      await updateClient(id, {
+        type: 'installment',
+        payments: payments,
+        contractHistory: contractHistory,
+        depositAmount: null
+      });
+      
+      // Refresh view
+      viewingClient = null;
+      render();
+      alert(`✅ Створено ${num} платежів по €${amountPerPayment.toLocaleString()}`);
     };
 
     // Export to Excel
