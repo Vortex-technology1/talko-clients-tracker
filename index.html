@@ -459,8 +459,11 @@
               <div class="flex items-center gap-3">
                 <div class="hidden sm:flex items-center gap-3 text-sm">
                   <span title="Очікується" class="text-amber-600">€${(expectedThisMonth - paidThisMonth).toLocaleString()}</span>
-                  <span title="Оплачено" class="text-green-600">+€${paidThisMonth.toLocaleString()}</span>
+                  <span title="Дохід" class="text-green-600">+€${paidThisMonth.toLocaleString()}</span>
                   <span title="Витрати" class="text-red-600">-€${expensesThisMonth.toLocaleString()}</span>
+                  <span title="Чистий прибуток" class="font-bold ${paidThisMonth - expensesThisMonth >= 0 ? 'text-emerald-600' : 'text-orange-600'}">
+                    =${(paidThisMonth - expensesThisMonth).toLocaleString()}
+                  </span>
                 </div>
                 <button onclick="window.exportToExcel()" class="p-2 text-gray-400 hover:text-green-600" title="Експорт в Excel">${icons.download}</button>
                 <button onclick="window.openSettings()" class="p-2 text-gray-400 hover:text-blue-600" title="Налаштування плану">${icons.chart}</button>
