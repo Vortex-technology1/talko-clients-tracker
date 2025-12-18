@@ -151,7 +151,7 @@
 
     // Get client start date (when they became a client)
     const getClientSince = (client) => {
-      // Explicit field first
+      // Explicit field first - this is the source of truth
       if (client.clientSince) return client.clientSince;
       // From start date (prepaid/deposit)
       if (client.startDate) return client.startDate;
@@ -167,24 +167,22 @@
       }
       // From old date field
       if (client.date) return client.date;
-      // From createdAt
-      if (client.createdAt) return client.createdAt.substring(0, 10);
+      // Don't use createdAt as it's when record was created, not when client started
       return null;
     };
 
-    // Check if client is new this month
+    // Check if client is new this month (only if clientSince is explicitly set)
     const isNewClientThisMonth = (client) => {
-      const since = getClientSince(client);
-      if (!since) return false;
+      // Only consider "new" if clientSince is explicitly set
+      if (!client.clientSince) return false;
       const cm = getCurrentMonth();
-      return since.startsWith(cm);
+      return client.clientSince.startsWith(cm);
     };
 
     // Check if client is new (within last 30 days)
     const isNewClient = (client) => {
-      const since = getClientSince(client);
-      if (!since) return false;
-      const sinceDate = new Date(since);
+      if (!client.clientSince) return false;
+      const sinceDate = new Date(client.clientSince);
       const now = new Date();
       const diffDays = Math.floor((now - sinceDate) / (1000 * 60 * 60 * 24));
       return diffDays <= 30;
@@ -584,35 +582,45 @@
               });
             }
           } else {
-            // Show each payment in its month (skip if on academic)
-            (c.payments || []).forEach((p, idx) => {
-              const month = p.date?.substring(0, 7) || cm;
+            // Show only ONE entry - the next unpaid payment (or last paid if all paid)
+            const nextPayment = (c.payments || []).find(p => !p.paid);
+            const payments = c.payments || [];
+            
+            if (nextPayment) {
+              // Show next unpaid payment
+              const idx = payments.indexOf(nextPayment);
+              const month = nextPayment.date?.substring(0, 7) || cm;
               const isAcademicMonth = isMonthOnAcademic(c, month);
               
-              if (isAcademicMonth && !p.paid) {
-                // Show in academic group
-                monthlyEntries.push({
-                  client: c,
-                  month: 'academic',
-                  date: p.date,
-                  amount: p.amount || 0,
-                  paid: p.paid,
-                  paymentIndex: idx,
-                  type: 'installment',
-                  isAcademic: true
-                });
-              } else {
-                monthlyEntries.push({
-                  client: c,
-                  month: month,
-                  date: p.date,
-                  amount: p.amount || 0,
-                  paid: p.paid,
-                  paymentIndex: idx,
-                  type: 'installment'
-                });
-              }
-            });
+              monthlyEntries.push({
+                client: c,
+                month: isAcademicMonth ? 'academic' : month,
+                date: nextPayment.date,
+                amount: nextPayment.amount || 0,
+                paid: false,
+                paymentIndex: idx,
+                totalPayments: payments.length,
+                paidPayments: payments.filter(p => p.paid).length,
+                type: 'installment',
+                isAcademic: isAcademicMonth
+              });
+            } else if (payments.length > 0) {
+              // All paid - show last payment as completed
+              const lastPayment = payments[payments.length - 1];
+              const month = lastPayment.date?.substring(0, 7) || cm;
+              
+              monthlyEntries.push({
+                client: c,
+                month: month,
+                date: lastPayment.date,
+                amount: lastPayment.amount || 0,
+                paid: true,
+                paymentIndex: payments.length - 1,
+                totalPayments: payments.length,
+                paidPayments: payments.length,
+                type: 'installment'
+              });
+            }
           }
         }
         
@@ -865,7 +873,7 @@
           <div class="text-right">
             <div class="font-bold ${amountClass}">€${(entry.amount || 0).toLocaleString()}</div>
             ${entry.type === 'deposit' ? `<div class="text-xs text-gray-500">з €${entry.totalAmount?.toLocaleString()}</div>` : ''}
-            ${entry.type === 'installment' && !isInactive ? `<div class="text-xs text-gray-500">${entry.paymentIndex + 1}/${c.payments?.length || 0}</div>` : ''}
+            ${entry.type === 'installment' && !isInactive ? `<div class="text-xs text-gray-500">${(entry.paidPayments || 0) + (entry.paid ? 0 : 0)}/${entry.totalPayments || c.payments?.length || 0}</div>` : ''}
           </div>
           ${entry.type === 'regular' && !isInactive ? `
             <button onclick="event.stopPropagation(); ${entry.paid ? `window.cancelPaymentQuick('${c.id}')` : `window.quickMarkPaid('${c.id}')`}" 
