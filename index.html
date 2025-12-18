@@ -38,6 +38,7 @@
     let filterStatus = '';
     let filterSearch = '';
     let filterMonth = '';
+    let filterClientStatus = 'active'; // default show only active
     let unsubClients = null;
     let unsubExpenses = null;
 
@@ -84,6 +85,13 @@
       installment: { label: 'Розтермінування', icon: icons.list, color: 'purple', description: 'Графік платежів' },
       prepaid: { label: 'Передоплата', icon: icons.creditCard, color: 'green', description: 'Оплатив наперед' },
       deposit: { label: 'Завдаток', icon: icons.gift, color: 'amber', description: 'Чекає на старт' },
+    };
+
+    // Client statuses
+    const clientStatuses = {
+      active: { label: 'Активний', color: 'green', icon: icons.check },
+      paused: { label: 'На паузі', color: 'gray', icon: icons.pause, description: 'Невідомо чи повернеться' },
+      archived: { label: 'Архів', color: 'gray', icon: icons.box, description: 'Колишній клієнт' },
     };
 
     // Check if client is on academic leave
@@ -325,6 +333,11 @@
     const renderClients = () => {
       let filtered = clients;
       
+      // Filter by client status first
+      if (filterClientStatus) {
+        filtered = filtered.filter(c => (c.clientStatus || 'active') === filterClientStatus);
+      }
+      
       if (filterSearch) {
         const s = filterSearch.toLowerCase();
         filtered = filtered.filter(c => c.name?.toLowerCase().includes(s) || c.businessName?.toLowerCase().includes(s));
@@ -350,9 +363,23 @@
       filtered.forEach(c => {
         // Skip if on academic leave for regular clients in current month
         const onAcademic = isOnAcademic(c);
+        const isPaused = (c.clientStatus || 'active') === 'paused';
+        const isArchived = (c.clientStatus || 'active') === 'archived';
         
         if (c.type === 'regular') {
-          if (onAcademic) {
+          if (isPaused || isArchived) {
+            // Show in paused/archived group
+            monthlyEntries.push({
+              client: c,
+              month: isPaused ? 'paused' : 'archived',
+              date: null,
+              amount: c.monthlyAmount || 0,
+              paid: false,
+              type: 'regular',
+              isPaused,
+              isArchived
+            });
+          } else if (onAcademic) {
             // Show in academic group
             monthlyEntries.push({
               client: c,
@@ -379,35 +406,53 @@
         }
         
         if (c.type === 'installment') {
-          // Show each payment in its month (skip if on academic)
-          (c.payments || []).forEach((p, idx) => {
-            const month = p.date?.substring(0, 7) || cm;
-            const isAcademicMonth = isMonthOnAcademic(c, month);
-            
-            if (isAcademicMonth && !p.paid) {
-              // Show in academic group
+          if (isPaused || isArchived) {
+            // Show one entry in paused/archived group
+            const nextPayment = (c.payments || []).find(p => !p.paid);
+            if (nextPayment) {
               monthlyEntries.push({
                 client: c,
-                month: 'academic',
-                date: p.date,
-                amount: p.amount || 0,
-                paid: p.paid,
-                paymentIndex: idx,
+                month: isPaused ? 'paused' : 'archived',
+                date: nextPayment.date,
+                amount: nextPayment.amount || 0,
+                paid: false,
+                paymentIndex: (c.payments || []).indexOf(nextPayment),
                 type: 'installment',
-                isAcademic: true
-              });
-            } else {
-              monthlyEntries.push({
-                client: c,
-                month: month,
-                date: p.date,
-                amount: p.amount || 0,
-                paid: p.paid,
-                paymentIndex: idx,
-                type: 'installment'
+                isPaused,
+                isArchived
               });
             }
-          });
+          } else {
+            // Show each payment in its month (skip if on academic)
+            (c.payments || []).forEach((p, idx) => {
+              const month = p.date?.substring(0, 7) || cm;
+              const isAcademicMonth = isMonthOnAcademic(c, month);
+              
+              if (isAcademicMonth && !p.paid) {
+                // Show in academic group
+                monthlyEntries.push({
+                  client: c,
+                  month: 'academic',
+                  date: p.date,
+                  amount: p.amount || 0,
+                  paid: p.paid,
+                  paymentIndex: idx,
+                  type: 'installment',
+                  isAcademic: true
+                });
+              } else {
+                monthlyEntries.push({
+                  client: c,
+                  month: month,
+                  date: p.date,
+                  amount: p.amount || 0,
+                  paid: p.paid,
+                  paymentIndex: idx,
+                  type: 'installment'
+                });
+              }
+            });
+          }
         }
         
         if (c.type === 'prepaid') {
@@ -415,11 +460,13 @@
           const month = c.startDate?.substring(0, 7) || cm;
           monthlyEntries.push({
             client: c,
-            month: month,
+            month: isPaused ? 'paused' : isArchived ? 'archived' : month,
             date: c.startDate,
             amount: c.totalAmount || 0,
             paid: true,
-            type: 'prepaid'
+            type: 'prepaid',
+            isPaused,
+            isArchived
           });
         }
         
@@ -428,12 +475,14 @@
           const month = c.startDate?.substring(0, 7) || 'deposit';
           monthlyEntries.push({
             client: c,
-            month: month,
+            month: isPaused ? 'paused' : isArchived ? 'archived' : month,
             date: c.startDate,
             amount: c.depositAmount || 0,
             totalAmount: c.totalAmount || 0,
             paid: false,
-            type: 'deposit'
+            type: 'deposit',
+            isPaused,
+            isArchived
           });
         }
       });
@@ -455,20 +504,40 @@
         });
       });
 
-      // Sort months: academic first, then deposits, then reverse chronological
+      // Sort months: paused first, then academic, then deposits, then reverse chronological, then archived last
       const sortedMonths = Object.keys(groups).sort((a, b) => {
-        if (a === 'academic') return -1;
-        if (b === 'academic') return 1;
-        if (a === 'deposit') return -1;
-        if (b === 'deposit') return 1;
+        const order = { paused: 0, academic: 1, deposit: 2, archived: 999 };
+        const aOrder = order[a] ?? 50;
+        const bOrder = order[b] ?? 50;
+        if (aOrder !== bOrder) return aOrder - bOrder;
         return b.localeCompare(a);
       });
 
       // Get all available months for filter
-      const allMonths = sortedMonths.filter(m => m !== 'deposit' && m !== 'academic');
+      const allMonths = sortedMonths.filter(m => !['deposit', 'academic', 'paused', 'archived'].includes(m));
 
       const filterPanel = `
         <div class="bg-white rounded-xl shadow-sm p-4 mb-4">
+          <!-- Client status tabs -->
+          <div class="flex gap-1 mb-4 border-b">
+            <button onclick="window.setFilter('clientStatus', 'active')" 
+              class="px-4 py-2 text-sm font-medium border-b-2 ${filterClientStatus === 'active' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}">
+              Активні
+            </button>
+            <button onclick="window.setFilter('clientStatus', 'paused')" 
+              class="px-4 py-2 text-sm font-medium border-b-2 ${filterClientStatus === 'paused' ? 'border-gray-500 text-gray-600' : 'border-transparent text-gray-500 hover:text-gray-700'}">
+              На паузі
+            </button>
+            <button onclick="window.setFilter('clientStatus', 'archived')" 
+              class="px-4 py-2 text-sm font-medium border-b-2 ${filterClientStatus === 'archived' ? 'border-gray-500 text-gray-600' : 'border-transparent text-gray-500 hover:text-gray-700'}">
+              Архів
+            </button>
+            <button onclick="window.setFilter('clientStatus', '')" 
+              class="px-4 py-2 text-sm font-medium border-b-2 ${filterClientStatus === '' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}">
+              Всі
+            </button>
+          </div>
+          
           <div class="flex flex-wrap gap-3">
             <div class="flex-1 min-w-[200px] relative">
               <input type="text" placeholder="Пошук..." value="${filterSearch}" oninput="window.setFilter('search', this.value)"
@@ -509,7 +578,9 @@
         const entries = groups[month];
         const isDeposits = month === 'deposit';
         const isAcademic = month === 'academic';
-        const totalExpected = entries.filter(e => !e.paid && !e.isAcademic).reduce((s, e) => s + (e.amount || 0), 0);
+        const isPaused = month === 'paused';
+        const isArchived = month === 'archived';
+        const totalExpected = entries.filter(e => !e.paid && !e.isAcademic && !e.isPaused && !e.isArchived).reduce((s, e) => s + (e.amount || 0), 0);
         const totalPaid = entries.filter(e => e.paid).reduce((s, e) => s + (e.amount || 0), 0);
 
         let headerClass = 'bg-green-50';
@@ -524,10 +595,18 @@
           headerClass = 'bg-gray-100';
           headerIcon = icons.pause;
           headerTitle = 'Академічна відпустка';
+        } else if (isPaused) {
+          headerClass = 'bg-gray-100';
+          headerIcon = icons.pause;
+          headerTitle = 'На паузі (невідомо чи повернеться)';
+        } else if (isArchived) {
+          headerClass = 'bg-gray-50';
+          headerIcon = icons.box;
+          headerTitle = 'Архів';
         }
 
         return `
-          <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-4">
+          <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-4 ${isArchived ? 'opacity-60' : ''}">
             <div class="${headerClass} px-4 py-3 flex flex-wrap items-center justify-between gap-2">
               <h3 class="font-bold text-gray-800 flex items-center gap-2">
                 ${headerIcon} ${headerTitle}
@@ -535,8 +614,10 @@
               <div class="flex gap-4 text-sm">
                 ${isDeposits ? `
                   <span>Всього: <b class="text-amber-600">€${entries.reduce((s, e) => s + (e.totalAmount || e.amount || 0), 0).toLocaleString()}</b></span>
-                ` : isAcademic ? `
-                  <span class="text-gray-500">${entries.length} клієнт(ів) на паузі</span>
+                ` : isAcademic || isPaused ? `
+                  <span class="text-gray-500">${entries.length} клієнт(ів)</span>
+                ` : isArchived ? `
+                  <span class="text-gray-400">${entries.length} клієнт(ів)</span>
                 ` : `
                   <span>Очікується: <b class="text-amber-600">€${totalExpected.toLocaleString()}</b></span>
                   <span>Оплачено: <b class="text-green-600">€${totalPaid.toLocaleString()}</b></span>
@@ -554,14 +635,25 @@
     const renderClientRow = (entry) => {
       const c = entry.client;
       const type = clientTypes[c.type] || clientTypes.regular;
-      const isPastDue = !entry.paid && !entry.isAcademic && entry.date && isDatePast(entry.date);
-      const isToday = !entry.isAcademic && entry.date && isDateToday(entry.date);
+      const clientStatus = c.clientStatus || 'active';
+      const isPaused = clientStatus === 'paused';
+      const isArchived = clientStatus === 'archived';
+      const isPastDue = !entry.paid && !entry.isAcademic && !isPaused && !isArchived && entry.date && isDatePast(entry.date);
+      const isToday = !entry.isAcademic && !isPaused && !isArchived && entry.date && isDateToday(entry.date);
       
       let statusBadge = '';
       let amountClass = '';
       let rowBg = '';
       
-      if (entry.isAcademic) {
+      if (isPaused) {
+        statusBadge = `<span class="px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-600 flex items-center gap-1">${icons.pause} На паузі</span>`;
+        amountClass = 'text-gray-400';
+        rowBg = 'bg-gray-50';
+      } else if (isArchived) {
+        statusBadge = `<span class="px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-500">${icons.box} Архів</span>`;
+        amountClass = 'text-gray-400';
+        rowBg = 'bg-gray-50';
+      } else if (entry.isAcademic) {
         statusBadge = `<span class="px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-600 flex items-center gap-1">${icons.pause} До ${formatDate(c.academicTo)}</span>`;
         amountClass = 'text-gray-400';
         rowBg = 'bg-gray-50';
@@ -584,34 +676,38 @@
         amountClass = 'text-gray-800';
       }
 
+      const isInactive = isPaused || isArchived || entry.isAcademic;
+
       return `
         <div class="px-4 py-3 flex items-center gap-3 hover:bg-gray-50 cursor-pointer ${rowBg}" 
           onclick="window.viewClient('${c.id}')">
-          <div class="w-8 h-8 rounded-full bg-${type.color}-100 text-${type.color}-600 flex items-center justify-center text-sm ${entry.isAcademic ? 'opacity-50' : ''}">
+          <div class="w-8 h-8 rounded-full bg-${type.color}-100 text-${type.color}-600 flex items-center justify-center text-sm ${isInactive ? 'opacity-50' : ''}">
             ${type.icon}
           </div>
           <div class="flex-1 min-w-0">
-            <div class="font-medium text-gray-800 ${entry.isAcademic ? 'text-gray-500' : ''}">${c.name}</div>
+            <div class="font-medium text-gray-800 ${isInactive ? 'text-gray-500' : ''}">${c.name}</div>
             <div class="text-sm text-gray-500 flex items-center gap-2">
               ${c.businessName ? `<span>${c.businessName}</span>` : ''}
-              ${entry.date && entry.type !== 'deposit' && !entry.isAcademic ? `<span class="${isPastDue ? 'text-red-600' : ''}">${formatDate(entry.date)}</span>` : ''}
+              ${entry.date && entry.type !== 'deposit' && !isInactive ? `<span class="${isPastDue ? 'text-red-600' : ''}">${formatDate(entry.date)}</span>` : ''}
             </div>
           </div>
           ${statusBadge}
           <div class="text-right">
             <div class="font-bold ${amountClass}">€${(entry.amount || 0).toLocaleString()}</div>
             ${entry.type === 'deposit' ? `<div class="text-xs text-gray-500">з €${entry.totalAmount?.toLocaleString()}</div>` : ''}
-            ${entry.type === 'installment' && !entry.isAcademic ? `<div class="text-xs text-gray-500">${entry.paymentIndex + 1}/${c.payments?.length || 0}</div>` : ''}
+            ${entry.type === 'installment' && !isInactive ? `<div class="text-xs text-gray-500">${entry.paymentIndex + 1}/${c.payments?.length || 0}</div>` : ''}
           </div>
-          ${entry.type === 'regular' && !entry.paid && !entry.isAcademic ? `
-            <button onclick="event.stopPropagation(); window.quickMarkPaid('${c.id}')" 
-              class="p-2 text-gray-400 hover:text-green-500" title="Оплачено">
-              ${icons.check}
+          ${entry.type === 'regular' && !isInactive ? `
+            <button onclick="event.stopPropagation(); ${entry.paid ? `window.cancelPaymentQuick('${c.id}')` : `window.quickMarkPaid('${c.id}')`}" 
+              class="p-2 ${entry.paid ? 'text-green-500 hover:text-red-500' : 'text-gray-400 hover:text-green-500'}" 
+              title="${entry.paid ? 'Скасувати оплату' : 'Оплачено'}">
+              ${entry.paid ? icons.check : icons.check}
             </button>
           ` : ''}
-          ${entry.type === 'installment' && !entry.paid && !entry.isAcademic ? `
+          ${entry.type === 'installment' && !isInactive ? `
             <button onclick="event.stopPropagation(); window.toggleInstallmentPayment('${c.id}', ${entry.paymentIndex})" 
-              class="p-2 text-gray-400 hover:text-green-500" title="Оплачено">
+              class="p-2 ${entry.paid ? 'text-green-500 hover:text-red-500' : 'text-gray-400 hover:text-green-500'}" 
+              title="${entry.paid ? 'Скасувати оплату' : 'Оплачено'}">
               ${icons.check}
             </button>
           ` : ''}
@@ -625,6 +721,7 @@
       const c = viewingClient;
       const type = clientTypes[c.type] || clientTypes.regular;
       const status = getClientStatus(c);
+      const clientStatus = clientStatuses[c.clientStatus || 'active'];
       const cm = getCurrentMonth();
 
       return `
@@ -633,7 +730,12 @@
             <div class="bg-${type.color}-500 text-white p-4 rounded-t-2xl">
               <div class="flex justify-between items-start">
                 <div>
-                  <div class="text-${type.color}-200 text-sm flex items-center gap-1">${type.icon} ${type.label}</div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-${type.color}-200 text-sm flex items-center gap-1">${type.icon} ${type.label}</span>
+                    ${(c.clientStatus || 'active') !== 'active' ? `
+                      <span class="px-2 py-0.5 rounded text-xs bg-white/20">${clientStatus.label}</span>
+                    ` : ''}
+                  </div>
                   <h2 class="text-xl font-bold mt-1">${c.name}</h2>
                   ${c.businessName ? `<div class="text-${type.color}-100">${c.businessName}</div>` : ''}
                 </div>
@@ -682,7 +784,11 @@
                       <button onclick="window.markPaid('${c.id}')" class="w-full mt-3 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center justify-center gap-2">
                         ${icons.check} Позначити оплаченим
                       </button>
-                    ` : ''}
+                    ` : `
+                      <button onclick="window.cancelPayment('${c.id}')" class="w-full mt-3 py-2 bg-gray-200 text-gray-600 rounded-lg hover:bg-red-100 hover:text-red-600 flex items-center justify-center gap-2">
+                        ${icons.close} Скасувати оплату
+                      </button>
+                    `}
                   </div>
                 </div>
                 
@@ -695,6 +801,21 @@
                         <div class="flex justify-between text-sm py-1 border-b">
                           <span>${getMonthLabel(p.month)}</span>
                           <span class="text-green-600">€${p.amount?.toLocaleString() || 0} — ${formatDate(p.paidAt)}</span>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                ` : ''}
+
+                <!-- Tariff history -->
+                ${(c.tariffHistory || []).length > 0 ? `
+                  <div>
+                    <div class="text-xs font-bold text-gray-500 uppercase mb-2">Історія тарифів</div>
+                    <div class="space-y-1">
+                      ${(c.tariffHistory || []).slice().reverse().map(t => `
+                        <div class="flex justify-between text-sm py-1 border-b text-gray-600">
+                          <span>${t.from ? formatDate(t.from) : '?'} — ${t.to ? formatDate(t.to) : '?'}</span>
+                          <span>€${t.amount?.toLocaleString()}/міс</span>
                         </div>
                       `).join('')}
                     </div>
@@ -795,9 +916,27 @@
               ` : ''}
             </div>
 
-            <div class="p-4 border-t flex gap-2">
-              <button onclick="window.editClient('${c.id}')" class="flex-1 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center gap-2">${icons.edit} Редагувати</button>
-              <button onclick="window.deleteClientConfirm('${c.id}')" class="py-2 px-4 bg-red-100 text-red-600 rounded-lg hover:bg-red-200">${icons.trash}</button>
+            <div class="p-4 border-t space-y-3">
+              <!-- Quick status change -->
+              ${(c.clientStatus || 'active') === 'active' ? `
+                <div class="flex gap-2">
+                  <button onclick="window.setClientStatus('${c.id}', 'paused')" class="flex-1 py-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 flex items-center justify-center gap-2 text-sm">
+                    ${icons.pause} Поставити на паузу
+                  </button>
+                  <button onclick="window.setClientStatus('${c.id}', 'archived')" class="py-2 px-3 bg-gray-100 text-gray-500 rounded-lg hover:bg-gray-200 text-sm">
+                    В архів
+                  </button>
+                </div>
+              ` : `
+                <button onclick="window.setClientStatus('${c.id}', 'active')" class="w-full py-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 flex items-center justify-center gap-2">
+                  ${icons.check} Активувати клієнта
+                </button>
+              `}
+              
+              <div class="flex gap-2">
+                <button onclick="window.editClient('${c.id}')" class="flex-1 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center gap-2">${icons.edit} Редагувати</button>
+                <button onclick="window.deleteClientConfirm('${c.id}')" class="py-2 px-4 bg-red-100 text-red-600 rounded-lg hover:bg-red-200">${icons.trash}</button>
+              </div>
             </div>
           </div>
         </div>
@@ -831,6 +970,20 @@
                         <div class="font-medium text-sm">${v.label}</div>
                         <div class="text-xs text-gray-500">${v.description}</div>
                       </div>
+                    </label>
+                  `).join('')}
+                </div>
+              </div>
+
+              <!-- Client status -->
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Статус клієнта</label>
+                <div class="flex gap-2">
+                  ${Object.entries(clientStatuses).map(([k, v]) => `
+                    <label class="flex-1 flex items-center justify-center gap-2 p-2 border rounded-lg cursor-pointer hover:bg-gray-50 ${(c.clientStatus || 'active') === k ? `border-${v.color}-500 bg-${v.color}-50` : ''}">
+                      <input type="radio" name="clientStatus" value="${k}" ${(c.clientStatus || 'active') === k ? 'checked' : ''} class="hidden">
+                      <span class="text-${v.color}-600">${v.icon}</span>
+                      <span class="text-sm">${v.label}</span>
                     </label>
                   `).join('')}
                 </div>
@@ -921,6 +1074,7 @@
       const type = c.type || 'regular';
       
       if (type === 'regular') {
+        const tariffHistory = c.tariffHistory || [];
         return `
           <div class="bg-blue-50 rounded-lg p-4 space-y-4">
             <h4 class="font-medium text-blue-800">Щомісячний платіж</h4>
@@ -932,6 +1086,42 @@
               <div>
                 <label class="block text-sm text-gray-700 mb-1">День оплати *</label>
                 <input type="number" name="paymentDay" min="1" max="31" value="${c.paymentDay || ''}" required class="w-full px-3 py-2 border rounded-lg" placeholder="1-31">
+              </div>
+            </div>
+            ${tariffHistory.length > 0 ? `
+              <div class="border-t pt-3">
+                <div class="text-xs font-medium text-gray-500 mb-2">Історія тарифів</div>
+                <div class="space-y-1 text-sm">
+                  ${tariffHistory.map(t => `
+                    <div class="flex justify-between text-gray-600">
+                      <span>${t.from ? formatDate(t.from) : '?'} — ${t.to ? formatDate(t.to) : '?'}</span>
+                      <span>€${t.amount?.toLocaleString()}/міс</span>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+            <div class="border-t pt-3">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" id="changeTariff" onchange="document.getElementById('tariffChangeFields').style.display = this.checked ? 'block' : 'none'" class="rounded">
+                <span class="text-sm text-gray-700">Зафіксувати зміну тарифу</span>
+              </label>
+              <div id="tariffChangeFields" style="display:none" class="mt-3 p-3 bg-white rounded-lg space-y-3">
+                <p class="text-xs text-gray-500">Попередній тариф буде збережено в історії</p>
+                <div class="grid grid-cols-3 gap-2">
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Стара сума €</label>
+                    <input type="number" name="oldTariffAmount" value="${c.monthlyAmount || ''}" class="w-full px-2 py-1 border rounded text-sm">
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">З дати</label>
+                    <input type="date" name="oldTariffFrom" class="w-full px-2 py-1 border rounded text-sm">
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">По дату</label>
+                    <input type="date" name="oldTariffTo" value="${getToday()}" class="w-full px-2 py-1 border rounded text-sm">
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1203,6 +1393,7 @@
       if (type === 'type') filterType = val;
       if (type === 'status') filterStatus = val;
       if (type === 'month') filterMonth = val;
+      if (type === 'clientStatus') filterClientStatus = val;
       render(); 
     };
     window.clearFilters = () => { filterSearch = ''; filterType = ''; filterStatus = ''; filterMonth = ''; render(); };
@@ -1248,6 +1439,7 @@
       
       const data = {
         type,
+        clientStatus: f.clientStatus.value || 'active',
         name: f.name.value,
         phone: f.phone.value,
         telegram: f.telegram.value,
@@ -1263,6 +1455,16 @@
         data.monthlyAmount = parseFloat(f.monthlyAmount.value) || 0;
         data.paymentDay = parseInt(f.paymentDay.value) || 1;
         data.paymentHistory = editingClient?.paymentHistory || [];
+        data.tariffHistory = editingClient?.tariffHistory || [];
+        
+        // Check if tariff change was logged
+        if (f.changeTariff?.checked && f.oldTariffAmount?.value) {
+          data.tariffHistory.push({
+            amount: parseFloat(f.oldTariffAmount.value) || 0,
+            from: f.oldTariffFrom?.value || '',
+            to: f.oldTariffTo?.value || getToday()
+          });
+        }
       }
       
       if (type === 'installment') {
@@ -1332,6 +1534,34 @@
       
       history.push({ month: cm, amount: client.monthlyAmount, paidAt: getToday() });
       await updateClient(id, { paymentHistory: history });
+    };
+
+    window.cancelPayment = async (id) => {
+      const client = clients.find(c => c.id === id);
+      if (!client) return;
+      
+      const cm = getCurrentMonth();
+      const history = (client.paymentHistory || []).filter(p => p.month !== cm);
+      
+      await updateClient(id, { paymentHistory: history });
+      viewingClient = { ...viewingClient, paymentHistory: history };
+      render();
+    };
+
+    window.cancelPaymentQuick = async (id) => {
+      const client = clients.find(c => c.id === id);
+      if (!client) return;
+      
+      const cm = getCurrentMonth();
+      const history = (client.paymentHistory || []).filter(p => p.month !== cm);
+      
+      await updateClient(id, { paymentHistory: history });
+    };
+
+    window.setClientStatus = async (id, status) => {
+      await updateClient(id, { clientStatus: status });
+      viewingClient = { ...viewingClient, clientStatus: status };
+      render();
     };
 
     window.toggleInstallmentPayment = async (id, idx) => {
