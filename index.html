@@ -37,6 +37,7 @@
     let filterType = '';
     let filterStatus = '';
     let filterSearch = '';
+    let filterMonth = '';
     let unsubClients = null;
     let unsubExpenses = null;
 
@@ -64,6 +65,7 @@
       mapPin: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
       chart: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>`,
       alertCircle: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>`,
+      pause: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`,
       google: `<svg class="w-5 h-5" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>`,
       logout: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>`,
       ads: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 4v16M12 4v16M5 8v8M22 8l-7 4 7 4V8zM2 12h3"/></svg>`,
@@ -82,6 +84,22 @@
       installment: { label: 'Розтермінування', icon: icons.list, color: 'purple', description: 'Графік платежів' },
       prepaid: { label: 'Передоплата', icon: icons.creditCard, color: 'green', description: 'Оплатив наперед' },
       deposit: { label: 'Завдаток', icon: icons.gift, color: 'amber', description: 'Чекає на старт' },
+    };
+
+    // Check if client is on academic leave
+    const isOnAcademic = (client) => {
+      if (!client.academicFrom) return false;
+      const today = getToday();
+      const from = client.academicFrom;
+      const to = client.academicTo || '2099-12-31';
+      return today >= from && today <= to;
+    };
+
+    const isMonthOnAcademic = (client, month) => {
+      if (!client.academicFrom) return false;
+      const from = client.academicFrom.substring(0, 7);
+      const to = (client.academicTo || '2099-12').substring(0, 7);
+      return month >= from && month <= to;
     };
 
     // Service types
@@ -147,6 +165,11 @@
     // Get client payment status
     const getClientStatus = (client) => {
       const cm = getCurrentMonth();
+      
+      // Check academic leave first
+      if (isOnAcademic(client)) {
+        return { status: 'academic', label: `Академ до ${formatDate(client.academicTo)}`, color: 'gray' };
+      }
       
       if (client.type === 'regular') {
         const paymentDate = getDayOfMonth(client.paymentDay);
@@ -310,19 +333,139 @@
         filtered = filtered.filter(c => c.type === filterType);
       }
       if (filterStatus) {
-        filtered = filtered.filter(c => {
-          const status = getClientStatus(c);
-          return status.status === filterStatus;
-        });
+        if (filterStatus === 'academic') {
+          filtered = filtered.filter(c => isOnAcademic(c));
+        } else {
+          filtered = filtered.filter(c => {
+            const status = getClientStatus(c);
+            return status.status === filterStatus;
+          });
+        }
       }
 
-      // Sort: overdue first, then today, then soon
-      filtered.sort((a, b) => {
-        const statusOrder = { overdue: 0, today: 1, soon: 2, pending: 3, paid: 4, active: 5, waiting: 6, ended: 7 };
-        const sa = getClientStatus(a);
-        const sb = getClientStatus(b);
-        return (statusOrder[sa.status] || 99) - (statusOrder[sb.status] || 99);
+      // Build monthly entries
+      const monthlyEntries = [];
+      const cm = getCurrentMonth();
+      
+      filtered.forEach(c => {
+        // Skip if on academic leave for regular clients in current month
+        const onAcademic = isOnAcademic(c);
+        
+        if (c.type === 'regular') {
+          if (onAcademic) {
+            // Show in academic group
+            monthlyEntries.push({
+              client: c,
+              month: 'academic',
+              date: c.academicTo,
+              amount: c.monthlyAmount || 0,
+              paid: false,
+              type: 'regular',
+              isAcademic: true
+            });
+          } else {
+            // Show in current month
+            const paymentDate = getDayOfMonth(c.paymentDay);
+            const paidThisMonth = (c.paymentHistory || []).some(p => p.month === cm);
+            monthlyEntries.push({
+              client: c,
+              month: cm,
+              date: paymentDate,
+              amount: c.monthlyAmount || 0,
+              paid: paidThisMonth,
+              type: 'regular'
+            });
+          }
+        }
+        
+        if (c.type === 'installment') {
+          // Show each payment in its month (skip if on academic)
+          (c.payments || []).forEach((p, idx) => {
+            const month = p.date?.substring(0, 7) || cm;
+            const isAcademicMonth = isMonthOnAcademic(c, month);
+            
+            if (isAcademicMonth && !p.paid) {
+              // Show in academic group
+              monthlyEntries.push({
+                client: c,
+                month: 'academic',
+                date: p.date,
+                amount: p.amount || 0,
+                paid: p.paid,
+                paymentIndex: idx,
+                type: 'installment',
+                isAcademic: true
+              });
+            } else {
+              monthlyEntries.push({
+                client: c,
+                month: month,
+                date: p.date,
+                amount: p.amount || 0,
+                paid: p.paid,
+                paymentIndex: idx,
+                type: 'installment'
+              });
+            }
+          });
+        }
+        
+        if (c.type === 'prepaid') {
+          // Show in start month
+          const month = c.startDate?.substring(0, 7) || cm;
+          monthlyEntries.push({
+            client: c,
+            month: month,
+            date: c.startDate,
+            amount: c.totalAmount || 0,
+            paid: true,
+            type: 'prepaid'
+          });
+        }
+        
+        if (c.type === 'deposit') {
+          // Show in planned start month or "no-date"
+          const month = c.startDate?.substring(0, 7) || 'deposit';
+          monthlyEntries.push({
+            client: c,
+            month: month,
+            date: c.startDate,
+            amount: c.depositAmount || 0,
+            totalAmount: c.totalAmount || 0,
+            paid: false,
+            type: 'deposit'
+          });
+        }
       });
+
+      // Group by month
+      const groups = {};
+      monthlyEntries.forEach(entry => {
+        if (!groups[entry.month]) groups[entry.month] = [];
+        groups[entry.month].push(entry);
+      });
+
+      // Sort entries within each month by date, then by status
+      Object.values(groups).forEach(entries => {
+        entries.sort((a, b) => {
+          // Unpaid first
+          if (a.paid !== b.paid) return a.paid ? 1 : -1;
+          // Then by date
+          return (a.date || '').localeCompare(b.date || '');
+        });
+      });
+
+      // Sort months: academic first, then deposits, then reverse chronological
+      const sortedMonths = Object.keys(groups).sort((a, b) => {
+        if (a === 'academic') return -1;
+        if (b === 'academic') return 1;
+        if (a === 'deposit') return -1;
+        if (b === 'deposit') return 1;
+        return b.localeCompare(a);
+      });
+
+      // Get all available months for filter
+      const allMonths = sortedMonths.filter(m => m !== 'deposit' && m !== 'academic');
 
       const filterPanel = `
         <div class="bg-white rounded-xl shadow-sm p-4 mb-4">
@@ -332,6 +475,10 @@
                 class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500">
               <span class="absolute left-3 top-2.5 text-gray-400">${icons.search}</span>
             </div>
+            <select onchange="window.setFilter('month', this.value)" class="px-3 py-2 border rounded-lg text-sm">
+              <option value="">Всі місяці</option>
+              ${allMonths.map(m => `<option value="${m}" ${filterMonth === m ? 'selected' : ''}>${getMonthLabel(m)}</option>`).join('')}
+            </select>
             <select onchange="window.setFilter('type', this.value)" class="px-3 py-2 border rounded-lg text-sm">
               <option value="">Всі типи</option>
               ${Object.entries(clientTypes).map(([k, v]) => `<option value="${k}" ${filterType === k ? 'selected' : ''}>${v.label}</option>`).join('')}
@@ -342,66 +489,132 @@
               <option value="today" ${filterStatus === 'today' ? 'selected' : ''}>Сьогодні</option>
               <option value="soon" ${filterStatus === 'soon' ? 'selected' : ''}>Скоро</option>
               <option value="paid" ${filterStatus === 'paid' ? 'selected' : ''}>Оплачено</option>
+              <option value="academic" ${filterStatus === 'academic' ? 'selected' : ''}>На академі</option>
             </select>
-            ${(filterSearch || filterType || filterStatus) ? `<button onclick="window.clearFilters()" class="p-2 text-gray-400 hover:text-red-500">${icons.close}</button>` : ''}
+            ${(filterSearch || filterType || filterStatus || filterMonth) ? `<button onclick="window.clearFilters()" class="p-2 text-gray-400 hover:text-red-500">${icons.close}</button>` : ''}
           </div>
         </div>
       `;
 
-      if (filtered.length === 0) {
+      // Apply month filter
+      const filteredMonths = filterMonth ? sortedMonths.filter(m => m === filterMonth || m === 'deposit') : sortedMonths;
+
+      if (filteredMonths.length === 0 || (filterMonth && !groups[filterMonth])) {
         return filterPanel + `<div class="bg-white rounded-xl p-8 text-center text-gray-500">
           ${clients.length === 0 ? 'Немає клієнтів. Натисни "+" щоб додати.' : 'Нічого не знайдено.'}
         </div>`;
       }
 
-      return filterPanel + `
-        <div class="space-y-3">
-          ${filtered.map(c => {
-            const type = clientTypes[c.type] || clientTypes.regular;
-            const status = getClientStatus(c);
-            const statusColors = {
-              red: 'bg-red-100 text-red-700 border-red-200',
-              orange: 'bg-orange-100 text-orange-700 border-orange-200',
-              amber: 'bg-amber-100 text-amber-700 border-amber-200',
-              green: 'bg-green-100 text-green-700 border-green-200',
-              gray: 'bg-gray-100 text-gray-600 border-gray-200',
-            };
-            
-            let amountDisplay = '';
-            if (c.type === 'regular') {
-              amountDisplay = `€${(c.monthlyAmount || 0).toLocaleString()}/міс`;
-            } else if (c.type === 'installment') {
-              const total = (c.payments || []).reduce((s, p) => s + (p.amount || 0), 0);
-              const paid = (c.payments || []).filter(p => p.paid).reduce((s, p) => s + (p.amount || 0), 0);
-              amountDisplay = `€${paid.toLocaleString()} / €${total.toLocaleString()}`;
-            } else if (c.type === 'prepaid') {
-              amountDisplay = `€${(c.totalAmount || 0).toLocaleString()}`;
-            } else if (c.type === 'deposit') {
-              amountDisplay = `€${(c.depositAmount || 0).toLocaleString()} / €${(c.totalAmount || 0).toLocaleString()}`;
-            }
+      return filterPanel + filteredMonths.map(month => {
+        const entries = groups[month];
+        const isDeposits = month === 'deposit';
+        const isAcademic = month === 'academic';
+        const totalExpected = entries.filter(e => !e.paid && !e.isAcademic).reduce((s, e) => s + (e.amount || 0), 0);
+        const totalPaid = entries.filter(e => e.paid).reduce((s, e) => s + (e.amount || 0), 0);
 
-            return `
-              <div class="bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition cursor-pointer ${status.status === 'overdue' ? 'border-l-4 border-red-500' : status.status === 'today' ? 'border-l-4 border-orange-500' : ''}" 
-                onclick="window.viewClient('${c.id}')">
-                <div class="flex items-center gap-4">
-                  <div class="w-10 h-10 rounded-full bg-${type.color}-100 text-${type.color}-600 flex items-center justify-center">
-                    ${type.icon}
-                  </div>
-                  <div class="flex-1 min-w-0">
-                    <div class="font-bold text-gray-800">${c.name}</div>
-                    <div class="text-sm text-gray-500 flex items-center gap-2">
-                      ${c.businessName ? `<span>${c.businessName}</span>` : ''}
-                      <span class="text-${type.color}-600">${type.label}</span>
-                    </div>
-                  </div>
-                  <div class="text-right">
-                    <div class="font-bold text-gray-800">${amountDisplay}</div>
-                    <span class="inline-block px-2 py-0.5 rounded text-xs border ${statusColors[status.color]}">${status.label}</span>
-                  </div>
-                </div>
+        let headerClass = 'bg-green-50';
+        let headerIcon = icons.calendar;
+        let headerTitle = getMonthLabel(month);
+        
+        if (isDeposits) {
+          headerClass = 'bg-amber-50';
+          headerIcon = icons.gift;
+          headerTitle = 'Завдатки';
+        } else if (isAcademic) {
+          headerClass = 'bg-gray-100';
+          headerIcon = icons.pause;
+          headerTitle = 'Академічна відпустка';
+        }
+
+        return `
+          <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-4">
+            <div class="${headerClass} px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+              <h3 class="font-bold text-gray-800 flex items-center gap-2">
+                ${headerIcon} ${headerTitle}
+              </h3>
+              <div class="flex gap-4 text-sm">
+                ${isDeposits ? `
+                  <span>Всього: <b class="text-amber-600">€${entries.reduce((s, e) => s + (e.totalAmount || e.amount || 0), 0).toLocaleString()}</b></span>
+                ` : isAcademic ? `
+                  <span class="text-gray-500">${entries.length} клієнт(ів) на паузі</span>
+                ` : `
+                  <span>Очікується: <b class="text-amber-600">€${totalExpected.toLocaleString()}</b></span>
+                  <span>Оплачено: <b class="text-green-600">€${totalPaid.toLocaleString()}</b></span>
+                `}
               </div>
-            `;
-          }).join('')}
+            </div>
+            <div class="divide-y">
+              ${entries.map(entry => renderClientRow(entry)).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    };
+
+    const renderClientRow = (entry) => {
+      const c = entry.client;
+      const type = clientTypes[c.type] || clientTypes.regular;
+      const isPastDue = !entry.paid && !entry.isAcademic && entry.date && isDatePast(entry.date);
+      const isToday = !entry.isAcademic && entry.date && isDateToday(entry.date);
+      
+      let statusBadge = '';
+      let amountClass = '';
+      let rowBg = '';
+      
+      if (entry.isAcademic) {
+        statusBadge = `<span class="px-2 py-0.5 rounded text-xs bg-gray-200 text-gray-600 flex items-center gap-1">${icons.pause} До ${formatDate(c.academicTo)}</span>`;
+        amountClass = 'text-gray-400';
+        rowBg = 'bg-gray-50';
+      } else if (entry.paid) {
+        statusBadge = `<span class="px-2 py-0.5 rounded text-xs bg-green-100 text-green-700">Оплачено</span>`;
+        amountClass = 'text-green-600';
+      } else if (isPastDue) {
+        statusBadge = `<span class="px-2 py-0.5 rounded text-xs bg-red-100 text-red-700">Прострочено</span>`;
+        amountClass = 'text-red-600';
+        rowBg = 'bg-red-50';
+      } else if (isToday) {
+        statusBadge = `<span class="px-2 py-0.5 rounded text-xs bg-orange-100 text-orange-700">Сьогодні!</span>`;
+        amountClass = 'text-orange-600';
+        rowBg = 'bg-orange-50';
+      } else {
+        const days = daysUntil(entry.date);
+        if (days <= 3 && days > 0) {
+          statusBadge = `<span class="px-2 py-0.5 rounded text-xs bg-amber-100 text-amber-700">Через ${days} дн</span>`;
+        }
+        amountClass = 'text-gray-800';
+      }
+
+      return `
+        <div class="px-4 py-3 flex items-center gap-3 hover:bg-gray-50 cursor-pointer ${rowBg}" 
+          onclick="window.viewClient('${c.id}')">
+          <div class="w-8 h-8 rounded-full bg-${type.color}-100 text-${type.color}-600 flex items-center justify-center text-sm ${entry.isAcademic ? 'opacity-50' : ''}">
+            ${type.icon}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="font-medium text-gray-800 ${entry.isAcademic ? 'text-gray-500' : ''}">${c.name}</div>
+            <div class="text-sm text-gray-500 flex items-center gap-2">
+              ${c.businessName ? `<span>${c.businessName}</span>` : ''}
+              ${entry.date && entry.type !== 'deposit' && !entry.isAcademic ? `<span class="${isPastDue ? 'text-red-600' : ''}">${formatDate(entry.date)}</span>` : ''}
+            </div>
+          </div>
+          ${statusBadge}
+          <div class="text-right">
+            <div class="font-bold ${amountClass}">€${(entry.amount || 0).toLocaleString()}</div>
+            ${entry.type === 'deposit' ? `<div class="text-xs text-gray-500">з €${entry.totalAmount?.toLocaleString()}</div>` : ''}
+            ${entry.type === 'installment' && !entry.isAcademic ? `<div class="text-xs text-gray-500">${entry.paymentIndex + 1}/${c.payments?.length || 0}</div>` : ''}
+          </div>
+          ${entry.type === 'regular' && !entry.paid && !entry.isAcademic ? `
+            <button onclick="event.stopPropagation(); window.quickMarkPaid('${c.id}')" 
+              class="p-2 text-gray-400 hover:text-green-500" title="Оплачено">
+              ${icons.check}
+            </button>
+          ` : ''}
+          ${entry.type === 'installment' && !entry.paid && !entry.isAcademic ? `
+            <button onclick="event.stopPropagation(); window.toggleInstallmentPayment('${c.id}', ${entry.paymentIndex})" 
+              class="p-2 text-gray-400 hover:text-green-500" title="Оплачено">
+              ${icons.check}
+            </button>
+          ` : ''}
         </div>
       `;
     };
@@ -562,6 +775,24 @@
                   <div class="bg-yellow-50 rounded-lg p-3 text-sm whitespace-pre-wrap">${c.terms}</div>
                 </div>
               ` : ''}
+
+              <!-- Academic leave -->
+              ${c.academicFrom ? `
+                <div>
+                  <div class="text-xs font-bold text-gray-500 uppercase mb-2">Академічна відпустка</div>
+                  <div class="bg-gray-100 rounded-lg p-3 flex items-center gap-3">
+                    <span class="text-gray-600">${icons.pause}</span>
+                    <div>
+                      <div class="font-medium ${isOnAcademic(c) ? 'text-orange-600' : 'text-gray-600'}">
+                        ${isOnAcademic(c) ? 'Зараз на паузі' : 'Запланована пауза'}
+                      </div>
+                      <div class="text-sm text-gray-500">
+                        ${formatDate(c.academicFrom)} — ${formatDate(c.academicTo)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ` : ''}
             </div>
 
             <div class="p-4 border-t flex gap-2">
@@ -649,6 +880,31 @@
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Умови та домовленості</label>
                 <textarea name="terms" rows="2" class="w-full px-3 py-2 border rounded-lg">${c.terms || ''}</textarea>
+              </div>
+
+              <!-- Academic leave -->
+              <div class="border-t pt-4">
+                <div class="flex items-center gap-2 mb-3">
+                  <input type="checkbox" id="hasAcademic" ${c.academicFrom ? 'checked' : ''} 
+                    onchange="document.getElementById('academicFields').style.display = this.checked ? 'block' : 'none'"
+                    class="w-4 h-4 text-gray-600 rounded">
+                  <label for="hasAcademic" class="text-sm font-medium text-gray-700 flex items-center gap-1">
+                    ${icons.pause} Академічна відпустка
+                  </label>
+                </div>
+                <div id="academicFields" style="${c.academicFrom ? '' : 'display:none'}" class="bg-gray-50 rounded-lg p-4">
+                  <div class="grid grid-cols-2 gap-4">
+                    <div>
+                      <label class="block text-sm text-gray-700 mb-1">З дати</label>
+                      <input type="date" name="academicFrom" value="${c.academicFrom || ''}" class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                      <label class="block text-sm text-gray-700 mb-1">По дату</label>
+                      <input type="date" name="academicTo" value="${c.academicTo || ''}" class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                  </div>
+                  <p class="text-xs text-gray-500 mt-2">Оплати за цей період будуть перенесені</p>
+                </div>
               </div>
 
               <div class="flex gap-2 pt-4 border-t">
@@ -946,9 +1202,10 @@
       if (type === 'search') filterSearch = val;
       if (type === 'type') filterType = val;
       if (type === 'status') filterStatus = val;
+      if (type === 'month') filterMonth = val;
       render(); 
     };
-    window.clearFilters = () => { filterSearch = ''; filterType = ''; filterStatus = ''; render(); };
+    window.clearFilters = () => { filterSearch = ''; filterType = ''; filterStatus = ''; filterMonth = ''; render(); };
 
     window.openForm = () => { showForm = true; editingClient = null; render(); };
     window.closeForm = () => { showForm = false; editingClient = null; render(); };
@@ -998,6 +1255,8 @@
         city: f.city.value,
         serviceType: f.serviceType.value,
         terms: f.terms.value,
+        academicFrom: f.academicFrom?.value || '',
+        academicTo: f.academicTo?.value || '',
       };
 
       if (type === 'regular') {
@@ -1059,6 +1318,20 @@
       await updateClient(id, { paymentHistory: history });
       viewingClient = { ...viewingClient, paymentHistory: history };
       render();
+    };
+
+    window.quickMarkPaid = async (id) => {
+      const client = clients.find(c => c.id === id);
+      if (!client) return;
+      
+      const cm = getCurrentMonth();
+      const history = client.paymentHistory || [];
+      
+      // Check if already paid this month
+      if (history.some(p => p.month === cm)) return;
+      
+      history.push({ month: cm, amount: client.monthlyAmount, paidAt: getToday() });
+      await updateClient(id, { paymentHistory: history });
     };
 
     window.toggleInstallmentPayment = async (id, idx) => {
