@@ -6,6 +6,7 @@
   <title>TALKO CRM</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect fill='%2322c55e' width='100' height='100' rx='20'/><text x='50' y='65' font-size='50' text-anchor='middle' fill='white'>T</text></svg>">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
   <script type="module">
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
     import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
@@ -77,6 +78,7 @@
       education: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>`,
       travel: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16v-2a4 4 0 00-4-4H5"/><path d="M17 6l4 4-4 4"/><path d="M3 8v2a4 4 0 004 4h12"/><path d="M7 18l-4-4 4-4"/></svg>`,
       box: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>`,
+      download: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>`,
     };
 
     // Client types
@@ -108,6 +110,68 @@
       const from = client.academicFrom.substring(0, 7);
       const to = (client.academicTo || '2099-12').substring(0, 7);
       return month >= from && month <= to;
+    };
+
+    // Auto-detect client type for backwards compatibility
+    const getClientType = (client) => {
+      if (client.type) return client.type;
+      // Detect from fields
+      if (client.payments && client.payments.length > 0) return 'installment';
+      if (client.paymentDay || client.monthlyAmount) return 'regular';
+      if (client.depositAmount !== undefined) return 'deposit';
+      if (client.startDate && client.endDate) return 'prepaid';
+      // Default based on old structure
+      if (client.amount && !client.paidAmount) return 'deposit';
+      return 'regular'; // fallback
+    };
+
+    // Get amount paid for a client (handles old and new data formats)
+    const getClientPaidAmount = (client, month) => {
+      const type = getClientType(client);
+      
+      if (type === 'regular') {
+        // Check paymentHistory first
+        const fromHistory = (client.paymentHistory || []).find(p => p.month === month);
+        if (fromHistory) return fromHistory.amount || client.monthlyAmount || 0;
+        // Fallback: check old paidAmount field
+        if (client.paidAmount && client.date?.startsWith(month)) return client.paidAmount;
+        return 0;
+      }
+      
+      if (type === 'installment') {
+        return (client.payments || [])
+          .filter(p => p.paid && p.date?.startsWith(month))
+          .reduce((sum, p) => sum + (p.amount || 0), 0);
+      }
+      
+      if (type === 'prepaid') {
+        if (client.startDate?.startsWith(month)) return client.totalAmount || client.amount || 0;
+        return 0;
+      }
+      
+      if (type === 'deposit') {
+        const depositMonth = client.createdAt?.substring(0, 7) || client.date?.substring(0, 7);
+        if (depositMonth === month) return client.depositAmount || client.paidAmount || 0;
+        return 0;
+      }
+      
+      // Old format fallback
+      if (client.paidAmount && client.date?.startsWith(month)) return client.paidAmount;
+      return 0;
+    };
+
+    // Check if client payment is marked as paid for current month
+    const isClientPaidThisMonth = (client) => {
+      const cm = getCurrentMonth();
+      const type = getClientType(client);
+      
+      if (type === 'regular') {
+        if ((client.paymentHistory || []).some(p => p.month === cm)) return true;
+        // Old format: check paidAmount
+        if (client.paidAmount > 0 && client.date?.startsWith(cm)) return true;
+        return false;
+      }
+      return false;
     };
 
     // Service types
@@ -173,15 +237,16 @@
     // Get client payment status
     const getClientStatus = (client) => {
       const cm = getCurrentMonth();
+      const type = getClientType(client);
       
       // Check academic leave first
       if (isOnAcademic(client)) {
         return { status: 'academic', label: `Академ до ${formatDate(client.academicTo)}`, color: 'gray' };
       }
       
-      if (client.type === 'regular') {
-        const paymentDate = getDayOfMonth(client.paymentDay);
-        const paidThisMonth = (client.paymentHistory || []).some(p => p.month === cm);
+      if (type === 'regular') {
+        const paymentDate = getDayOfMonth(client.paymentDay || new Date().getDate());
+        const paidThisMonth = isClientPaidThisMonth(client);
         
         if (paidThisMonth) return { status: 'paid', label: 'Оплачено', color: 'green' };
         if (isDatePast(paymentDate)) return { status: 'overdue', label: 'Прострочено', color: 'red' };
@@ -191,7 +256,7 @@
         return { status: 'pending', label: formatDate(paymentDate), color: 'gray' };
       }
       
-      if (client.type === 'installment') {
+      if (type === 'installment') {
         const nextPayment = (client.payments || []).find(p => !p.paid);
         if (!nextPayment) return { status: 'completed', label: 'Завершено', color: 'green' };
         if (isDatePast(nextPayment.date)) return { status: 'overdue', label: 'Прострочено', color: 'red' };
@@ -201,14 +266,14 @@
         return { status: 'pending', label: formatDate(nextPayment.date), color: 'gray' };
       }
       
-      if (client.type === 'prepaid') {
+      if (type === 'prepaid') {
         if (isDatePast(client.endDate)) return { status: 'ended', label: 'Закінчилось', color: 'gray' };
         const days = daysUntil(client.endDate);
         if (days <= 7) return { status: 'ending', label: `${days} дн до кінця`, color: 'amber' };
         return { status: 'active', label: `До ${formatDate(client.endDate)}`, color: 'green' };
       }
       
-      if (client.type === 'deposit') {
+      if (type === 'deposit') {
         if (!client.startDate) return { status: 'waiting', label: 'Дата не визначена', color: 'gray' };
         if (isDatePast(client.startDate)) return { status: 'started', label: 'Розпочато', color: 'green' };
         const days = daysUntil(client.startDate);
@@ -276,19 +341,24 @@
       let paidThisMonth = 0;
       
       clients.forEach(c => {
-        if (c.type === 'regular') {
-          expectedThisMonth += c.monthlyAmount || 0;
-          const paid = (c.paymentHistory || []).find(p => p.month === cm);
-          if (paid) paidThisMonth += paid.amount || c.monthlyAmount || 0;
+        const type = getClientType(c);
+        const clientStatus = c.clientStatus || 'active';
+        if (clientStatus === 'archived') return;
+        
+        if (type === 'regular' && clientStatus === 'active' && !isOnAcademic(c)) {
+          expectedThisMonth += c.monthlyAmount || c.amount || 0;
         }
-        if (c.type === 'installment') {
+        
+        if (type === 'installment') {
           (c.payments || []).forEach(p => {
             if (p.date?.startsWith(cm)) {
               expectedThisMonth += p.amount || 0;
-              if (p.paid) paidThisMonth += p.amount || 0;
             }
           });
         }
+        
+        // Add paid amount
+        paidThisMonth += getClientPaidAmount(c, cm);
       });
       
       const expensesThisMonth = expenses.filter(e => e.date?.startsWith(cm)).reduce((s, e) => s + (e.amount || 0), 0);
@@ -310,6 +380,7 @@
                   <span title="Оплачено" class="text-green-600">+€${paidThisMonth.toLocaleString()}</span>
                   <span title="Витрати" class="text-red-600">-€${expensesThisMonth.toLocaleString()}</span>
                 </div>
+                <button onclick="window.exportToExcel()" class="p-2 text-gray-400 hover:text-green-600" title="Експорт в Excel">${icons.download}</button>
                 <button onclick="window.handleSignOut()" class="p-2 text-gray-400 hover:text-gray-600">${icons.logout}</button>
               </div>
             </div>
@@ -343,7 +414,7 @@
         filtered = filtered.filter(c => c.name?.toLowerCase().includes(s) || c.businessName?.toLowerCase().includes(s));
       }
       if (filterType) {
-        filtered = filtered.filter(c => c.type === filterType);
+        filtered = filtered.filter(c => getClientType(c) === filterType);
       }
       if (filterStatus) {
         if (filterStatus === 'academic') {
@@ -365,15 +436,16 @@
         const onAcademic = isOnAcademic(c);
         const isPaused = (c.clientStatus || 'active') === 'paused';
         const isArchived = (c.clientStatus || 'active') === 'archived';
+        const type = getClientType(c);
         
-        if (c.type === 'regular') {
+        if (type === 'regular') {
           if (isPaused || isArchived) {
             // Show in paused/archived group
             monthlyEntries.push({
               client: c,
               month: isPaused ? 'paused' : 'archived',
               date: null,
-              amount: c.monthlyAmount || 0,
+              amount: c.monthlyAmount || c.amount || 0,
               paid: false,
               type: 'regular',
               isPaused,
@@ -385,27 +457,27 @@
               client: c,
               month: 'academic',
               date: c.academicTo,
-              amount: c.monthlyAmount || 0,
+              amount: c.monthlyAmount || c.amount || 0,
               paid: false,
               type: 'regular',
               isAcademic: true
             });
           } else {
             // Show in current month
-            const paymentDate = getDayOfMonth(c.paymentDay);
-            const paidThisMonth = (c.paymentHistory || []).some(p => p.month === cm);
+            const paymentDate = getDayOfMonth(c.paymentDay || new Date().getDate());
+            const paidThisMonth = isClientPaidThisMonth(c);
             monthlyEntries.push({
               client: c,
               month: cm,
               date: paymentDate,
-              amount: c.monthlyAmount || 0,
+              amount: c.monthlyAmount || c.amount || 0,
               paid: paidThisMonth,
               type: 'regular'
             });
           }
         }
         
-        if (c.type === 'installment') {
+        if (type === 'installment') {
           if (isPaused || isArchived) {
             // Show one entry in paused/archived group
             const nextPayment = (c.payments || []).find(p => !p.paid);
@@ -455,14 +527,14 @@
           }
         }
         
-        if (c.type === 'prepaid') {
+        if (type === 'prepaid') {
           // Show in start month
           const month = c.startDate?.substring(0, 7) || cm;
           monthlyEntries.push({
             client: c,
             month: isPaused ? 'paused' : isArchived ? 'archived' : month,
             date: c.startDate,
-            amount: c.totalAmount || 0,
+            amount: c.totalAmount || c.amount || 0,
             paid: true,
             type: 'prepaid',
             isPaused,
@@ -470,15 +542,15 @@
           });
         }
         
-        if (c.type === 'deposit') {
+        if (type === 'deposit') {
           // Show in planned start month or "no-date"
           const month = c.startDate?.substring(0, 7) || 'deposit';
           monthlyEntries.push({
             client: c,
             month: isPaused ? 'paused' : isArchived ? 'archived' : month,
             date: c.startDate,
-            amount: c.depositAmount || 0,
-            totalAmount: c.totalAmount || 0,
+            amount: c.depositAmount || c.paidAmount || 0,
+            totalAmount: c.totalAmount || c.amount || 0,
             paid: false,
             type: 'deposit',
             isPaused,
@@ -634,7 +706,7 @@
 
     const renderClientRow = (entry) => {
       const c = entry.client;
-      const type = clientTypes[c.type] || clientTypes.regular;
+      const type = clientTypes[getClientType(c)] || clientTypes.regular;
       const clientStatus = c.clientStatus || 'active';
       const isPaused = clientStatus === 'paused';
       const isArchived = clientStatus === 'archived';
@@ -719,7 +791,8 @@
     const renderClientCard = () => {
       if (!viewingClient) return '';
       const c = viewingClient;
-      const type = clientTypes[c.type] || clientTypes.regular;
+      const type = clientTypes[getClientType(c)] || clientTypes.regular;
+      const clientType = getClientType(c);
       const status = getClientStatus(c);
       const clientStatus = clientStatuses[c.clientStatus || 'active'];
       const cm = getCurrentMonth();
@@ -768,7 +841,7 @@
               ` : ''}
 
               <!-- Type-specific info -->
-              ${c.type === 'regular' ? `
+              ${clientType === 'regular' ? `
                 <div>
                   <div class="text-xs font-bold text-gray-500 uppercase mb-2">Щомісячний платіж</div>
                   <div class="bg-blue-50 rounded-lg p-4">
@@ -823,7 +896,7 @@
                 ` : ''}
               ` : ''}
 
-              ${c.type === 'installment' ? `
+              ${clientType === 'installment' ? `
                 <div>
                   <div class="text-xs font-bold text-gray-500 uppercase mb-2">Графік платежів</div>
                   <div class="space-y-2">
@@ -843,7 +916,7 @@
                 </div>
               ` : ''}
 
-              ${c.type === 'prepaid' ? `
+              ${clientType === 'prepaid' ? `
                 <div>
                   <div class="text-xs font-bold text-gray-500 uppercase mb-2">Передоплата</div>
                   <div class="bg-green-50 rounded-lg p-4 space-y-2">
@@ -863,7 +936,7 @@
                 </div>
               ` : ''}
 
-              ${c.type === 'deposit' ? `
+              ${clientType === 'deposit' ? `
                 <div>
                   <div class="text-xs font-bold text-gray-500 uppercase mb-2">Завдаток</div>
                   <div class="bg-amber-50 rounded-lg p-4 space-y-2">
@@ -1290,69 +1363,241 @@
       `;
     };
 
-    // Render finance
+    // Render finance with chart
     const renderFinance = () => {
-      const allMonths = [...new Set([
-        ...clients.flatMap(c => {
-          if (c.type === 'regular') return (c.paymentHistory || []).map(p => p.month);
-          if (c.type === 'installment') return (c.payments || []).filter(p => p.paid).map(p => p.date?.substring(0, 7));
-          return [];
-        }).filter(Boolean),
-        ...expenses.map(e => e.date?.substring(0, 7)).filter(Boolean)
-      ])].sort((a, b) => b.localeCompare(a));
+      const cm = getCurrentMonth();
+      const currentYear = new Date().getFullYear();
+      
+      // Generate all months for current year
+      const yearMonths = [];
+      for (let m = 1; m <= 12; m++) {
+        yearMonths.push(`${currentYear}-${String(m).padStart(2, '0')}`);
+      }
 
-      if (allMonths.length === 0) return `<div class="bg-white rounded-xl p-8 text-center text-gray-500">Немає даних.</div>`;
+      // Calculate plan and actual for each month
+      const monthlyData = yearMonths.map(month => {
+        let plan = 0;
+        let actual = 0;
 
-      const data = allMonths.map(m => {
-        let income = 0;
         clients.forEach(c => {
-          if (c.type === 'regular') {
-            const paid = (c.paymentHistory || []).find(p => p.month === m);
-            if (paid) income += paid.amount || 0;
+          const type = getClientType(c);
+          const clientStatus = c.clientStatus || 'active';
+          if (clientStatus === 'archived') return;
+          
+          if (type === 'regular') {
+            // Plan: monthly amount for active clients (not on academic)
+            if (clientStatus === 'active' && !isMonthOnAcademic(c, month)) {
+              plan += c.monthlyAmount || c.amount || 0;
+            }
           }
-          if (c.type === 'installment') {
+          
+          if (type === 'installment') {
             (c.payments || []).forEach(p => {
-              if (p.paid && p.date?.startsWith(m)) income += p.amount || 0;
+              if (p.date?.startsWith(month)) {
+                plan += p.amount || 0;
+              }
             });
           }
+          
+          if (type === 'prepaid') {
+            if (c.startDate?.startsWith(month)) {
+              plan += c.totalAmount || c.amount || 0;
+            }
+          }
+          
+          if (type === 'deposit') {
+            if (c.startDate?.startsWith(month)) {
+              plan += c.totalAmount || c.amount || 0;
+            }
+          }
+          
+          // Add actual paid amount using helper
+          actual += getClientPaidAmount(c, month);
         });
-        const expense = expenses.filter(e => e.date?.startsWith(m)).reduce((s, e) => s + (e.amount || 0), 0);
-        return { month: m, income, expense, profit: income - expense };
+
+        // Expenses for this month
+        const monthExpenses = expenses.filter(e => e.date?.startsWith(month)).reduce((s, e) => s + (e.amount || 0), 0);
+
+        return { month, plan, actual, expenses: monthExpenses, profit: actual - monthExpenses };
       });
 
-      const totals = data.reduce((a, d) => ({ income: a.income + d.income, expense: a.expense + d.expense }), { income: 0, expense: 0 });
+      // Totals
+      const totals = monthlyData.reduce((acc, m) => ({
+        plan: acc.plan + m.plan,
+        actual: acc.actual + m.actual,
+        expenses: acc.expenses + m.expenses
+      }), { plan: 0, actual: 0, expenses: 0 });
+
+      // Find max value for chart scaling
+      const maxValue = Math.max(...monthlyData.map(m => Math.max(m.plan, m.actual))) || 1;
+
+      // Month labels
+      const monthLabels = ['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер', 'Лип', 'Сер', 'Вер', 'Жов', 'Лис', 'Гру'];
 
       return `
-        <div class="grid grid-cols-3 gap-4 mb-6">
+        <!-- Summary cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-blue-50 rounded-xl p-4 text-center">
+            <div class="text-sm text-blue-600">План на рік</div>
+            <div class="text-2xl font-bold text-blue-700">€${totals.plan.toLocaleString()}</div>
+          </div>
           <div class="bg-green-50 rounded-xl p-4 text-center">
-            <div class="text-sm text-green-600">Доходи</div>
-            <div class="text-2xl font-bold text-green-700">€${totals.income.toLocaleString()}</div>
+            <div class="text-sm text-green-600">Фактично отримано</div>
+            <div class="text-2xl font-bold text-green-700">€${totals.actual.toLocaleString()}</div>
           </div>
           <div class="bg-red-50 rounded-xl p-4 text-center">
             <div class="text-sm text-red-600">Витрати</div>
-            <div class="text-2xl font-bold text-red-700">€${totals.expense.toLocaleString()}</div>
+            <div class="text-2xl font-bold text-red-700">€${totals.expenses.toLocaleString()}</div>
           </div>
-          <div class="${totals.income - totals.expense >= 0 ? 'bg-blue-50' : 'bg-orange-50'} rounded-xl p-4 text-center">
-            <div class="text-sm ${totals.income - totals.expense >= 0 ? 'text-blue-600' : 'text-orange-600'}">Прибуток</div>
-            <div class="text-2xl font-bold ${totals.income - totals.expense >= 0 ? 'text-blue-700' : 'text-orange-700'}">€${(totals.income - totals.expense).toLocaleString()}</div>
+          <div class="${totals.actual - totals.expenses >= 0 ? 'bg-emerald-50' : 'bg-orange-50'} rounded-xl p-4 text-center">
+            <div class="text-sm ${totals.actual - totals.expenses >= 0 ? 'text-emerald-600' : 'text-orange-600'}">Чистий прибуток</div>
+            <div class="text-2xl font-bold ${totals.actual - totals.expenses >= 0 ? 'text-emerald-700' : 'text-orange-700'}">€${(totals.actual - totals.expenses).toLocaleString()}</div>
           </div>
         </div>
+
+        <!-- Chart -->
+        <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
+          <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">${icons.chart} План vs Факт ${currentYear}</h3>
+          
+          <!-- Legend -->
+          <div class="flex gap-6 mb-4 text-sm">
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 rounded bg-blue-200"></div>
+              <span>План</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 rounded bg-green-500"></div>
+              <span>Факт</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="w-4 h-4 rounded bg-red-400"></div>
+              <span>Витрати</span>
+            </div>
+          </div>
+
+          <!-- Bar chart -->
+          <div class="relative">
+            <!-- Y-axis labels -->
+            <div class="absolute left-0 top-0 bottom-8 w-12 flex flex-col justify-between text-xs text-gray-400">
+              <span>€${maxValue.toLocaleString()}</span>
+              <span>€${Math.round(maxValue/2).toLocaleString()}</span>
+              <span>€0</span>
+            </div>
+            
+            <!-- Chart area -->
+            <div class="ml-14 overflow-x-auto">
+              <div class="flex gap-2 min-w-[600px]" style="height: 200px;">
+                ${monthlyData.map((m, idx) => {
+                  const planHeight = Math.round((m.plan / maxValue) * 100);
+                  const actualHeight = Math.round((m.actual / maxValue) * 100);
+                  const expenseHeight = Math.round((m.expenses / maxValue) * 100);
+                  const isCurrentMonth = m.month === cm;
+                  const isPast = m.month < cm;
+                  
+                  return `
+                    <div class="flex-1 flex flex-col items-center justify-end ${isCurrentMonth ? 'bg-green-50 rounded-t-lg' : ''}">
+                      <div class="w-full flex justify-center gap-1 items-end h-full pb-1">
+                        <!-- Plan bar -->
+                        <div class="w-5 bg-blue-200 rounded-t transition-all hover:bg-blue-300" 
+                          style="height: ${planHeight}%;" 
+                          title="План: €${m.plan.toLocaleString()}"></div>
+                        <!-- Actual bar -->
+                        <div class="w-5 ${m.actual >= m.plan ? 'bg-green-500' : 'bg-green-400'} rounded-t transition-all hover:bg-green-600" 
+                          style="height: ${actualHeight}%;" 
+                          title="Факт: €${m.actual.toLocaleString()}"></div>
+                        <!-- Expenses bar -->
+                        <div class="w-5 bg-red-400 rounded-t transition-all hover:bg-red-500" 
+                          style="height: ${expenseHeight}%;" 
+                          title="Витрати: €${m.expenses.toLocaleString()}"></div>
+                      </div>
+                      <div class="text-xs ${isCurrentMonth ? 'font-bold text-green-600' : isPast ? 'text-gray-400' : 'text-gray-500'} mt-1">
+                        ${monthLabels[idx]}
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
+          <div class="flex justify-between mb-2">
+            <span class="text-sm text-gray-600">Виконання плану</span>
+            <span class="text-sm font-bold ${totals.actual >= totals.plan ? 'text-green-600' : 'text-amber-600'}">
+              ${totals.plan > 0 ? Math.round((totals.actual / totals.plan) * 100) : 0}%
+            </span>
+          </div>
+          <div class="h-4 bg-gray-200 rounded-full overflow-hidden">
+            <div class="h-full ${totals.actual >= totals.plan ? 'bg-green-500' : 'bg-amber-500'} rounded-full transition-all" 
+              style="width: ${Math.min(100, totals.plan > 0 ? (totals.actual / totals.plan) * 100 : 0)}%"></div>
+          </div>
+          <div class="flex justify-between mt-1 text-xs text-gray-400">
+            <span>€0</span>
+            <span>€${totals.plan.toLocaleString()}</span>
+          </div>
+        </div>
+
+        <!-- Monthly table -->
         <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-          <table class="w-full">
-            <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
-              <tr><th class="px-4 py-3 text-left">Місяць</th><th class="px-4 py-3 text-right">Дохід</th><th class="px-4 py-3 text-right">Витрати</th><th class="px-4 py-3 text-right">Прибуток</th></tr>
-            </thead>
-            <tbody class="divide-y">
-              ${data.map(d => `
+          <div class="px-4 py-3 bg-gray-50 border-b">
+            <h3 class="font-bold text-gray-800">Деталі по місяцях</h3>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full">
+              <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
                 <tr>
-                  <td class="px-4 py-3 font-medium">${getMonthLabel(d.month)}</td>
-                  <td class="px-4 py-3 text-right text-green-600">+€${d.income.toLocaleString()}</td>
-                  <td class="px-4 py-3 text-right text-red-600">-€${d.expense.toLocaleString()}</td>
-                  <td class="px-4 py-3 text-right font-bold ${d.profit >= 0 ? 'text-blue-600' : 'text-orange-600'}">€${d.profit.toLocaleString()}</td>
+                  <th class="px-4 py-3 text-left">Місяць</th>
+                  <th class="px-4 py-3 text-right">План</th>
+                  <th class="px-4 py-3 text-right">Факт</th>
+                  <th class="px-4 py-3 text-right">%</th>
+                  <th class="px-4 py-3 text-right">Витрати</th>
+                  <th class="px-4 py-3 text-right">Прибуток</th>
                 </tr>
-              `).join('')}
-            </tbody>
-          </table>
+              </thead>
+              <tbody class="divide-y">
+                ${monthlyData.map(m => {
+                  const percent = m.plan > 0 ? Math.round((m.actual / m.plan) * 100) : 0;
+                  const isCurrentMonth = m.month === cm;
+                  const isPast = m.month < cm;
+                  
+                  return `
+                    <tr class="${isCurrentMonth ? 'bg-green-50' : ''} ${!isPast && !isCurrentMonth ? 'text-gray-400' : ''}">
+                      <td class="px-4 py-3 font-medium ${isCurrentMonth ? 'text-green-700' : ''}">${getMonthLabel(m.month)}</td>
+                      <td class="px-4 py-3 text-right text-blue-600">€${m.plan.toLocaleString()}</td>
+                      <td class="px-4 py-3 text-right text-green-600">€${m.actual.toLocaleString()}</td>
+                      <td class="px-4 py-3 text-right">
+                        <span class="px-2 py-0.5 rounded text-xs ${percent >= 100 ? 'bg-green-100 text-green-700' : percent >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}">
+                          ${percent}%
+                        </span>
+                      </td>
+                      <td class="px-4 py-3 text-right text-red-600">€${m.expenses.toLocaleString()}</td>
+                      <td class="px-4 py-3 text-right font-bold ${m.profit >= 0 ? 'text-emerald-600' : 'text-orange-600'}">
+                        €${m.profit.toLocaleString()}
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+              <tfoot class="bg-gray-50 font-bold">
+                <tr>
+                  <td class="px-4 py-3">Всього</td>
+                  <td class="px-4 py-3 text-right text-blue-600">€${totals.plan.toLocaleString()}</td>
+                  <td class="px-4 py-3 text-right text-green-600">€${totals.actual.toLocaleString()}</td>
+                  <td class="px-4 py-3 text-right">
+                    <span class="px-2 py-0.5 rounded text-xs ${totals.plan > 0 && (totals.actual / totals.plan) >= 1 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}">
+                      ${totals.plan > 0 ? Math.round((totals.actual / totals.plan) * 100) : 0}%
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-right text-red-600">€${totals.expenses.toLocaleString()}</td>
+                  <td class="px-4 py-3 text-right ${totals.actual - totals.expenses >= 0 ? 'text-emerald-600' : 'text-orange-600'}">
+                    €${(totals.actual - totals.expenses).toLocaleString()}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         </div>
       `;
     };
@@ -1562,6 +1807,144 @@
       await updateClient(id, { clientStatus: status });
       viewingClient = { ...viewingClient, clientStatus: status };
       render();
+    };
+
+    // Export to Excel
+    window.exportToExcel = () => {
+      const cm = getCurrentMonth();
+      
+      // Prepare clients data
+      const clientsData = clients.map(c => {
+        const type = clientTypes[c.type];
+        const status = clientStatuses[c.clientStatus || 'active'];
+        
+        let amount = 0;
+        let paidAmount = 0;
+        
+        if (c.type === 'regular') {
+          amount = c.monthlyAmount || 0;
+          const paidThisMonth = (c.paymentHistory || []).find(p => p.month === cm);
+          paidAmount = paidThisMonth ? (paidThisMonth.amount || amount) : 0;
+        } else if (c.type === 'installment') {
+          amount = (c.payments || []).reduce((s, p) => s + (p.amount || 0), 0);
+          paidAmount = (c.payments || []).filter(p => p.paid).reduce((s, p) => s + (p.amount || 0), 0);
+        } else if (c.type === 'prepaid') {
+          amount = c.totalAmount || 0;
+          paidAmount = amount;
+        } else if (c.type === 'deposit') {
+          amount = c.totalAmount || 0;
+          paidAmount = c.depositAmount || 0;
+        }
+
+        return {
+          'Імʼя': c.name || '',
+          'Бізнес': c.businessName || '',
+          'Місто': c.city || '',
+          'Телефон': c.phone || '',
+          'Telegram': c.telegram || '',
+          'Email': c.email || '',
+          'Тип': type?.label || '',
+          'Статус': status?.label || '',
+          'Сума договору': amount,
+          'Оплачено': paidAmount,
+          'Залишок': amount - paidAmount,
+          'День оплати': c.paymentDay || '',
+          'Послуга': serviceTypes.find(s => s.value === c.serviceType)?.label || '',
+          'Умови': c.terms || '',
+          'Академ з': c.academicFrom || '',
+          'Академ по': c.academicTo || '',
+        };
+      });
+
+      // Prepare payments data (all payment history)
+      const paymentsData = [];
+      clients.forEach(c => {
+        if (c.type === 'regular') {
+          (c.paymentHistory || []).forEach(p => {
+            paymentsData.push({
+              'Клієнт': c.name,
+              'Бізнес': c.businessName || '',
+              'Місяць': getMonthLabel(p.month),
+              'Дата оплати': p.paidAt || '',
+              'Сума': p.amount || c.monthlyAmount || 0,
+              'Тип': 'Регулярний',
+            });
+          });
+        }
+        if (c.type === 'installment') {
+          (c.payments || []).forEach((p, idx) => {
+            paymentsData.push({
+              'Клієнт': c.name,
+              'Бізнес': c.businessName || '',
+              'Дата платежу': p.date || '',
+              'Сума': p.amount || 0,
+              'Оплачено': p.paid ? 'Так' : 'Ні',
+              'Тип': `Розтермінування (${idx + 1}/${c.payments.length})`,
+            });
+          });
+        }
+      });
+
+      // Prepare expenses data
+      const expensesData = expenses.map(e => {
+        const cat = expenseCategories.find(c => c.value === e.category);
+        return {
+          'Опис': e.description || '',
+          'Дата': e.date || '',
+          'Категорія': cat?.label || '',
+          'Сума': e.amount || 0,
+        };
+      });
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      
+      // Add sheets
+      const wsClients = XLSX.utils.json_to_sheet(clientsData);
+      XLSX.utils.book_append_sheet(wb, wsClients, 'Клієнти');
+      
+      if (paymentsData.length > 0) {
+        const wsPayments = XLSX.utils.json_to_sheet(paymentsData);
+        XLSX.utils.book_append_sheet(wb, wsPayments, 'Оплати');
+      }
+      
+      if (expensesData.length > 0) {
+        const wsExpenses = XLSX.utils.json_to_sheet(expensesData);
+        XLSX.utils.book_append_sheet(wb, wsExpenses, 'Витрати');
+      }
+
+      // Generate filename with date
+      const today = getToday().replace(/-/g, '');
+      XLSX.writeFile(wb, `TALKO_CRM_${today}.xlsx`);
+    };
+
+    window.exportClientsCSV = () => {
+      const rows = [['Імʼя', 'Бізнес', 'Телефон', 'Telegram', 'Тип', 'Сума', 'Статус']];
+      
+      clients.forEach(c => {
+        const type = clientTypes[c.type];
+        const status = clientStatuses[c.clientStatus || 'active'];
+        let amount = c.monthlyAmount || c.totalAmount || 0;
+        
+        rows.push([
+          c.name || '',
+          c.businessName || '',
+          c.phone || '',
+          c.telegram || '',
+          type?.label || '',
+          amount,
+          status?.label || ''
+        ]);
+      });
+
+      const csv = rows.map(r => r.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+      const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `TALKO_Clients_${getToday()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
     };
 
     window.toggleInstallmentPayment = async (id, idx) => {
