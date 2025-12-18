@@ -40,6 +40,12 @@
     let filterSearch = '';
     let filterMonth = '';
     let filterClientStatus = 'active'; // default show only active
+    let filterNewClients = false; // filter for new clients this month
+    let showSettings = false;
+    let settings = { monthlyPlan: 0, yearlyPlan: 0 };
+    let showSettings = false;
+    let settings = { monthlyPlan: 0, yearlyPlan: 0 };
+    let unsubSettings = null;
     let unsubClients = null;
     let unsubExpenses = null;
 
@@ -79,6 +85,7 @@
       travel: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16v-2a4 4 0 00-4-4H5"/><path d="M17 6l4 4-4 4"/><path d="M3 8v2a4 4 0 004 4h12"/><path d="M7 18l-4-4 4-4"/></svg>`,
       box: `<svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05M12 22.08V12"/></svg>`,
       download: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>`,
+      star: `<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>`,
     };
 
     // Client types
@@ -117,12 +124,72 @@
       if (client.type) return client.type;
       // Detect from fields
       if (client.payments && client.payments.length > 0) return 'installment';
-      if (client.paymentDay || client.monthlyAmount) return 'regular';
-      if (client.depositAmount !== undefined) return 'deposit';
+      if (client.paymentDay) return 'regular';
+      if (client.monthlyAmount) return 'regular';
+      if (client.depositAmount !== undefined && client.depositAmount > 0) return 'deposit';
       if (client.startDate && client.endDate) return 'prepaid';
-      // Default based on old structure
-      if (client.amount && !client.paidAmount) return 'deposit';
+      // Old format - treat as regular if has amount
+      if (client.amount) return 'regular';
       return 'regular'; // fallback
+    };
+
+    // Get monthly amount for client (handles old and new formats)
+    const getClientMonthlyAmount = (client) => {
+      if (client.monthlyAmount) return client.monthlyAmount;
+      if (client.amount) return client.amount; // old format
+      return 0;
+    };
+
+    // Get payment day for client
+    const getClientPaymentDay = (client) => {
+      if (client.paymentDay) return client.paymentDay;
+      // Try to extract from date field
+      if (client.date) {
+        const day = parseInt(client.date.split('-')[2]);
+        if (day >= 1 && day <= 31) return day;
+      }
+      return 18; // default
+    };
+
+    // Get client start date (when they became a client)
+    const getClientSince = (client) => {
+      // Explicit field first
+      if (client.clientSince) return client.clientSince;
+      // From start date (prepaid/deposit)
+      if (client.startDate) return client.startDate;
+      // From first payment in history
+      if (client.paymentHistory && client.paymentHistory.length > 0) {
+        const sorted = [...client.paymentHistory].sort((a, b) => a.month.localeCompare(b.month));
+        return sorted[0].month + '-01';
+      }
+      // From first installment payment
+      if (client.payments && client.payments.length > 0) {
+        const sorted = [...client.payments].sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        if (sorted[0].date) return sorted[0].date;
+      }
+      // From old date field
+      if (client.date) return client.date;
+      // From createdAt
+      if (client.createdAt) return client.createdAt.substring(0, 10);
+      return null;
+    };
+
+    // Check if client is new this month
+    const isNewClientThisMonth = (client) => {
+      const since = getClientSince(client);
+      if (!since) return false;
+      const cm = getCurrentMonth();
+      return since.startsWith(cm);
+    };
+
+    // Check if client is new (within last 30 days)
+    const isNewClient = (client) => {
+      const since = getClientSince(client);
+      if (!since) return false;
+      const sinceDate = new Date(since);
+      const now = new Date();
+      const diffDays = Math.floor((now - sinceDate) / (1000 * 60 * 60 * 24));
+      return diffDays <= 30;
     };
 
     // Get amount paid for a client (handles old and new data formats)
@@ -130,10 +197,10 @@
       const type = getClientType(client);
       
       if (type === 'regular') {
-        // Check paymentHistory first
+        // Check paymentHistory first (new format)
         const fromHistory = (client.paymentHistory || []).find(p => p.month === month);
-        if (fromHistory) return fromHistory.amount || client.monthlyAmount || 0;
-        // Fallback: check old paidAmount field
+        if (fromHistory) return fromHistory.amount || getClientMonthlyAmount(client);
+        // Fallback: check old paidAmount field if date matches
         if (client.paidAmount && client.date?.startsWith(month)) return client.paidAmount;
         return 0;
       }
@@ -146,6 +213,8 @@
       
       if (type === 'prepaid') {
         if (client.startDate?.startsWith(month)) return client.totalAmount || client.amount || 0;
+        // Old format
+        if (client.date?.startsWith(month) && client.paidAmount) return client.paidAmount;
         return 0;
       }
       
@@ -166,9 +235,10 @@
       const type = getClientType(client);
       
       if (type === 'regular') {
+        // New format
         if ((client.paymentHistory || []).some(p => p.month === cm)) return true;
-        // Old format: check paidAmount
-        if (client.paidAmount > 0 && client.date?.startsWith(cm)) return true;
+        // Old format: check paidAmount equals amount
+        if (client.date?.startsWith(cm) && client.paidAmount > 0) return true;
         return false;
       }
       return false;
@@ -286,6 +356,7 @@
     // Firebase
     const clientsRef = () => collection(db, 'users', currentUser.uid, 'clients');
     const expensesRef = () => collection(db, 'users', currentUser.uid, 'expenses');
+    const settingsDocRef = () => doc(db, 'users', currentUser.uid, 'settings', 'plan');
 
     const addClient = async (data) => await addDoc(clientsRef(), { ...data, createdAt: new Date().toISOString() });
     const updateClient = async (id, data) => await updateDoc(doc(db, 'users', currentUser.uid, 'clients', id), data);
@@ -293,11 +364,16 @@
     const addExpense = async (data) => await addDoc(expensesRef(), { ...data, createdAt: new Date().toISOString() });
     const updateExpense = async (id, data) => await updateDoc(doc(db, 'users', currentUser.uid, 'expenses', id), data);
     const deleteExpense = async (id) => await deleteDoc(doc(db, 'users', currentUser.uid, 'expenses', id));
+    const saveSettings = async (data) => {
+      const { setDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+      await setDoc(settingsDocRef(), data);
+    };
 
     const handleSignIn = async () => { await signInWithPopup(auth, new GoogleAuthProvider()); };
     const handleSignOut = async () => { 
       if (unsubClients) unsubClients(); 
       if (unsubExpenses) unsubExpenses();
+      if (unsubSettings) unsubSettings();
       await signOut(auth); 
     };
 
@@ -309,6 +385,15 @@
       unsubExpenses = onSnapshot(query(expensesRef(), orderBy('date', 'desc')), (snap) => {
         expenses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         render();
+      });
+      // Load settings
+      import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js').then(({ getDoc }) => {
+        getDoc(settingsDocRef()).then(snap => {
+          if (snap.exists()) {
+            settings = snap.data();
+            render();
+          }
+        });
       });
     };
 
@@ -346,7 +431,7 @@
         if (clientStatus === 'archived') return;
         
         if (type === 'regular' && clientStatus === 'active' && !isOnAcademic(c)) {
-          expectedThisMonth += c.monthlyAmount || c.amount || 0;
+          expectedThisMonth += getClientMonthlyAmount(c);
         }
         
         if (type === 'installment') {
@@ -381,6 +466,7 @@
                   <span title="Витрати" class="text-red-600">-€${expensesThisMonth.toLocaleString()}</span>
                 </div>
                 <button onclick="window.exportToExcel()" class="p-2 text-gray-400 hover:text-green-600" title="Експорт в Excel">${icons.download}</button>
+                <button onclick="window.openSettings()" class="p-2 text-gray-400 hover:text-blue-600" title="Налаштування плану">${icons.chart}</button>
                 <button onclick="window.handleSignOut()" class="p-2 text-gray-400 hover:text-gray-600">${icons.logout}</button>
               </div>
             </div>
@@ -407,6 +493,11 @@
       // Filter by client status first
       if (filterClientStatus) {
         filtered = filtered.filter(c => (c.clientStatus || 'active') === filterClientStatus);
+      }
+      
+      // Filter new clients (this month)
+      if (filterNewClients) {
+        filtered = filtered.filter(c => isNewClientThisMonth(c));
       }
       
       if (filterSearch) {
@@ -445,7 +536,7 @@
               client: c,
               month: isPaused ? 'paused' : 'archived',
               date: null,
-              amount: c.monthlyAmount || c.amount || 0,
+              amount: getClientMonthlyAmount(c),
               paid: false,
               type: 'regular',
               isPaused,
@@ -457,20 +548,20 @@
               client: c,
               month: 'academic',
               date: c.academicTo,
-              amount: c.monthlyAmount || c.amount || 0,
+              amount: getClientMonthlyAmount(c),
               paid: false,
               type: 'regular',
               isAcademic: true
             });
           } else {
             // Show in current month
-            const paymentDate = getDayOfMonth(c.paymentDay || new Date().getDate());
+            const paymentDate = getDayOfMonth(getClientPaymentDay(c));
             const paidThisMonth = isClientPaidThisMonth(c);
             monthlyEntries.push({
               client: c,
               month: cm,
               date: paymentDate,
-              amount: c.monthlyAmount || c.amount || 0,
+              amount: getClientMonthlyAmount(c),
               paid: paidThisMonth,
               type: 'regular'
             });
@@ -593,8 +684,14 @@
           <!-- Client status tabs -->
           <div class="flex gap-1 mb-4 border-b">
             <button onclick="window.setFilter('clientStatus', 'active')" 
-              class="px-4 py-2 text-sm font-medium border-b-2 ${filterClientStatus === 'active' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}">
+              class="px-4 py-2 text-sm font-medium border-b-2 ${filterClientStatus === 'active' && !filterNewClients ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500 hover:text-gray-700'}">
               Активні
+            </button>
+            <button onclick="window.setFilter('newClients', true)" 
+              class="px-4 py-2 text-sm font-medium border-b-2 flex items-center gap-1 ${filterNewClients ? 'border-purple-500 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-700'}">
+              ${icons.star} Нові
+              ${clients.filter(c => isNewClientThisMonth(c) && (c.clientStatus || 'active') === 'active').length > 0 ? 
+                `<span class="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs">${clients.filter(c => isNewClientThisMonth(c) && (c.clientStatus || 'active') === 'active').length}</span>` : ''}
             </button>
             <button onclick="window.setFilter('clientStatus', 'paused')" 
               class="px-4 py-2 text-sm font-medium border-b-2 ${filterClientStatus === 'paused' ? 'border-gray-500 text-gray-600' : 'border-transparent text-gray-500 hover:text-gray-700'}">
@@ -605,7 +702,7 @@
               Архів
             </button>
             <button onclick="window.setFilter('clientStatus', '')" 
-              class="px-4 py-2 text-sm font-medium border-b-2 ${filterClientStatus === '' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}">
+              class="px-4 py-2 text-sm font-medium border-b-2 ${filterClientStatus === '' && !filterNewClients ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}">
               Всі
             </button>
           </div>
@@ -757,7 +854,10 @@
             ${type.icon}
           </div>
           <div class="flex-1 min-w-0">
-            <div class="font-medium text-gray-800 ${isInactive ? 'text-gray-500' : ''}">${c.name}</div>
+            <div class="font-medium text-gray-800 ${isInactive ? 'text-gray-500' : ''} flex items-center gap-2">
+              ${c.name}
+              ${isNewClientThisMonth(c) && !isInactive ? `<span class="px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded text-xs">${icons.star}</span>` : ''}
+            </div>
             <div class="text-sm text-gray-500 flex items-center gap-2">
               ${c.businessName ? `<span>${c.businessName}</span>` : ''}
               ${entry.date && entry.type !== 'deposit' && !isInactive ? `<span class="${isPastDue ? 'text-red-600' : ''}">${formatDate(entry.date)}</span>` : ''}
@@ -830,12 +930,18 @@
               ` : ''}
 
               <!-- Info -->
-              ${(c.city || c.serviceType) ? `
+              ${(c.city || c.serviceType || getClientSince(c)) ? `
                 <div>
                   <div class="text-xs font-bold text-gray-500 uppercase mb-2">Інформація</div>
                   <div class="space-y-1 text-sm">
                     ${c.city ? `<div class="flex items-center gap-2">${icons.mapPin} ${c.city}</div>` : ''}
                     ${c.serviceType ? `<div class="flex items-center gap-2">${icons.building} ${serviceTypes.find(s => s.value === c.serviceType)?.label || c.serviceType}</div>` : ''}
+                    ${getClientSince(c) ? `
+                      <div class="flex items-center gap-2">
+                        ${icons.calendar} Клієнт з ${formatDate(getClientSince(c))}
+                        ${isNewClientThisMonth(c) ? `<span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">Новий</span>` : ''}
+                      </div>
+                    ` : ''}
                   </div>
                 </div>
               ` : ''}
@@ -846,8 +952,8 @@
                   <div class="text-xs font-bold text-gray-500 uppercase mb-2">Щомісячний платіж</div>
                   <div class="bg-blue-50 rounded-lg p-4">
                     <div class="flex justify-between items-center mb-3">
-                      <span class="text-2xl font-bold text-blue-700">€${(c.monthlyAmount || 0).toLocaleString()}</span>
-                      <span class="text-blue-600">${c.paymentDay}-го числа</span>
+                      <span class="text-2xl font-bold text-blue-700">€${getClientMonthlyAmount(c).toLocaleString()}</span>
+                      <span class="text-blue-600">${getClientPaymentDay(c)}-го числа</span>
                     </div>
                     <div class="flex justify-between items-center">
                       <span>Статус ${getMonthLabel(cm)}:</span>
@@ -1090,12 +1196,18 @@
                 </div>
               </div>
 
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Тип послуги</label>
-                <select name="serviceType" class="w-full px-3 py-2 border rounded-lg">
-                  <option value="">Не вказано</option>
-                  ${serviceTypes.map(s => `<option value="${s.value}" ${c.serviceType === s.value ? 'selected' : ''}>${s.label}</option>`).join('')}
-                </select>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Тип послуги</label>
+                  <select name="serviceType" class="w-full px-3 py-2 border rounded-lg">
+                    <option value="">Не вказано</option>
+                    ${serviceTypes.map(s => `<option value="${s.value}" ${c.serviceType === s.value ? 'selected' : ''}>${s.label}</option>`).join('')}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Клієнт з</label>
+                  <input type="date" name="clientSince" value="${c.clientSince || getClientSince(c) || getToday()}" class="w-full px-3 py-2 border rounded-lg">
+                </div>
               </div>
 
               <!-- Type-specific fields -->
@@ -1363,6 +1475,42 @@
       `;
     };
 
+    // Render settings modal
+    const renderSettings = () => {
+      if (!showSettings) return '';
+
+      return `
+        <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick="if(event.target===this) window.closeSettings()">
+          <div class="bg-white rounded-2xl p-6 w-full max-w-md">
+            <div class="flex justify-between mb-4">
+              <h3 class="text-lg font-bold flex items-center gap-2">${icons.chart} Налаштування плану</h3>
+              <button onclick="window.closeSettings()" class="text-gray-400">${icons.close}</button>
+            </div>
+            <form onsubmit="window.saveSettingsForm(event)" class="space-y-4">
+              <div class="bg-blue-50 rounded-lg p-4 space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">План на місяць €</label>
+                  <input type="number" name="monthlyPlan" value="${settings.monthlyPlan || ''}" 
+                    placeholder="Наприклад: 5000" class="w-full px-3 py-2 border rounded-lg">
+                  <p class="text-xs text-gray-500 mt-1">Скільки планую заробляти щомісяця</p>
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">План на рік €</label>
+                  <input type="number" name="yearlyPlan" value="${settings.yearlyPlan || ''}" 
+                    placeholder="Наприклад: 60000" class="w-full px-3 py-2 border rounded-lg">
+                  <p class="text-xs text-gray-500 mt-1">Або автоматично: місячний × 12</p>
+                </div>
+              </div>
+              <div class="flex gap-2 pt-4">
+                <button type="submit" class="flex-1 py-2 bg-blue-500 text-white rounded-lg">${icons.check} Зберегти</button>
+                <button type="button" onclick="window.closeSettings()" class="flex-1 py-2 bg-gray-200 rounded-lg">Скасувати</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+    };
+
     // Render finance with chart
     const renderFinance = () => {
       const cm = getCurrentMonth();
@@ -1375,42 +1523,13 @@
       }
 
       // Calculate plan and actual for each month
+      const monthlyPlan = settings.monthlyPlan || 0;
+      const yearlyPlan = settings.yearlyPlan || (monthlyPlan * 12);
+      
       const monthlyData = yearMonths.map(month => {
-        let plan = 0;
         let actual = 0;
 
         clients.forEach(c => {
-          const type = getClientType(c);
-          const clientStatus = c.clientStatus || 'active';
-          if (clientStatus === 'archived') return;
-          
-          if (type === 'regular') {
-            // Plan: monthly amount for active clients (not on academic)
-            if (clientStatus === 'active' && !isMonthOnAcademic(c, month)) {
-              plan += c.monthlyAmount || c.amount || 0;
-            }
-          }
-          
-          if (type === 'installment') {
-            (c.payments || []).forEach(p => {
-              if (p.date?.startsWith(month)) {
-                plan += p.amount || 0;
-              }
-            });
-          }
-          
-          if (type === 'prepaid') {
-            if (c.startDate?.startsWith(month)) {
-              plan += c.totalAmount || c.amount || 0;
-            }
-          }
-          
-          if (type === 'deposit') {
-            if (c.startDate?.startsWith(month)) {
-              plan += c.totalAmount || c.amount || 0;
-            }
-          }
-          
           // Add actual paid amount using helper
           actual += getClientPaidAmount(c, month);
         });
@@ -1418,28 +1537,42 @@
         // Expenses for this month
         const monthExpenses = expenses.filter(e => e.date?.startsWith(month)).reduce((s, e) => s + (e.amount || 0), 0);
 
-        return { month, plan, actual, expenses: monthExpenses, profit: actual - monthExpenses };
+        return { month, plan: monthlyPlan, actual, expenses: monthExpenses, profit: actual - monthExpenses };
       });
 
       // Totals
-      const totals = monthlyData.reduce((acc, m) => ({
-        plan: acc.plan + m.plan,
-        actual: acc.actual + m.actual,
-        expenses: acc.expenses + m.expenses
-      }), { plan: 0, actual: 0, expenses: 0 });
+      const totals = {
+        plan: yearlyPlan,
+        actual: monthlyData.reduce((acc, m) => acc + m.actual, 0),
+        expenses: monthlyData.reduce((acc, m) => acc + m.expenses, 0)
+      };
 
       // Find max value for chart scaling
-      const maxValue = Math.max(...monthlyData.map(m => Math.max(m.plan, m.actual))) || 1;
+      const maxValue = Math.max(...monthlyData.map(m => Math.max(m.plan, m.actual, m.expenses)), 1);
 
       // Month labels
       const monthLabels = ['Січ', 'Лют', 'Бер', 'Кві', 'Тра', 'Чер', 'Лип', 'Сер', 'Вер', 'Жов', 'Лис', 'Гру'];
 
       return `
+        <!-- Plan settings prompt -->
+        ${!monthlyPlan ? `
+          <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex items-center justify-between">
+            <div>
+              <div class="font-medium text-amber-800">План не налаштовано</div>
+              <div class="text-sm text-amber-600">Встановіть місячний план для відстеження прогресу</div>
+            </div>
+            <button onclick="window.openSettings()" class="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600">
+              Налаштувати
+            </button>
+          </div>
+        ` : ''}
+
         <!-- Summary cards -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <div class="bg-blue-50 rounded-xl p-4 text-center">
             <div class="text-sm text-blue-600">План на рік</div>
             <div class="text-2xl font-bold text-blue-700">€${totals.plan.toLocaleString()}</div>
+            ${monthlyPlan ? `<div class="text-xs text-blue-500">€${monthlyPlan.toLocaleString()}/міс</div>` : ''}
           </div>
           <div class="bg-green-50 rounded-xl p-4 text-center">
             <div class="text-sm text-green-600">Фактично отримано</div>
@@ -1457,7 +1590,10 @@
 
         <!-- Chart -->
         <div class="bg-white rounded-xl shadow-sm p-4 mb-6">
-          <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">${icons.chart} План vs Факт ${currentYear}</h3>
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="font-bold text-gray-800 flex items-center gap-2">${icons.chart} План vs Факт ${currentYear}</h3>
+            <button onclick="window.openSettings()" class="text-sm text-blue-600 hover:underline">Змінити план</button>
+          </div>
           
           <!-- Legend -->
           <div class="flex gap-6 mb-4 text-sm">
@@ -1625,6 +1761,7 @@
         ${fab}
         ${renderForm()}
         ${renderExpenseForm()}
+        ${renderSettings()}
         ${renderClientCard()}
       `;
     };
@@ -1638,10 +1775,11 @@
       if (type === 'type') filterType = val;
       if (type === 'status') filterStatus = val;
       if (type === 'month') filterMonth = val;
-      if (type === 'clientStatus') filterClientStatus = val;
+      if (type === 'clientStatus') { filterClientStatus = val; filterNewClients = false; }
+      if (type === 'newClients') { filterNewClients = val; filterClientStatus = 'active'; }
       render(); 
     };
-    window.clearFilters = () => { filterSearch = ''; filterType = ''; filterStatus = ''; filterMonth = ''; render(); };
+    window.clearFilters = () => { filterSearch = ''; filterType = ''; filterStatus = ''; filterMonth = ''; filterNewClients = false; render(); };
 
     window.openForm = () => { showForm = true; editingClient = null; render(); };
     window.closeForm = () => { showForm = false; editingClient = null; render(); };
@@ -1654,6 +1792,19 @@
     window.closeExpenseForm = () => { showExpenseForm = false; editingExpense = null; render(); };
     window.editExpense = (id) => { editingExpense = expenses.find(e => e.id === id); render(); };
     window.deleteExpenseConfirm = async (id) => { if (confirm('Видалити?')) await deleteExpense(id); };
+
+    window.openSettings = () => { showSettings = true; render(); };
+    window.closeSettings = () => { showSettings = false; render(); };
+    window.saveSettingsForm = async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const monthlyPlan = parseFloat(f.monthlyPlan.value) || 0;
+      const yearlyPlan = parseFloat(f.yearlyPlan.value) || (monthlyPlan * 12);
+      settings = { monthlyPlan, yearlyPlan };
+      await saveSettings(settings);
+      showSettings = false;
+      render();
+    };
 
     window.updateFormType = (type) => {
       const container = document.getElementById('typeFields');
@@ -1692,6 +1843,7 @@
         city: f.city.value,
         serviceType: f.serviceType.value,
         terms: f.terms.value,
+        clientSince: f.clientSince?.value || editingClient?.clientSince || getToday(),
         academicFrom: f.academicFrom?.value || '',
         academicTo: f.academicTo?.value || '',
       };
